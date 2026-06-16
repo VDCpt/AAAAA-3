@@ -672,15 +672,27 @@
         }
 
         // ── PATCH macro_v13 — Lacuna A (getSystemMetrics) ────────────────────
-        // ANTERIOR (CORROMPIDO): utilizava discrepância SAF-T vs DAC7 (472,81 €)
-        // como base, ignorava o multiplicador de 12 meses e não extraía média mensal.
-        // CORRIGIDO: base = omissão de custos (BTOR – BTF); extrai média mensal
-        // antes de aplicar o multiplicador de mercado (38.000) e a projeção (12×7).
+        // ── SSoT impactoSeteAnosMercado (exportador) ──────────────────────────
+        // ANTERIOR: recalculava mediaMensalBase * 38000 * 12 * 7 localmente,
+        // em paralelo ao motor Z-Score IC99% de script.js — causava divergências
+        // de arredondamento entre dashboard e PDF (o motor usa IC99% conservador;
+        // este cálculo usava média simples).
+        // CORRIGIDO: ler analysis.danoCalculado (gravado por script.js logo após
+        // o cálculo Z-Score, como Fonte Única de Verdade).
+        // Fallback defensivo: se por qualquer razão danoCalculado não estiver
+        // populado (exportação antes de performAudit), usar o cálculo local como
+        // estimativa de degradação controlada (registado em consola como aviso).
         const mesesComDados = sys.dataMonths ? sys.dataMonths.length : 4;
         const baseOmissaoCustos = ((analysis.totals && analysis.totals.despesas) || analysis.btorLedger || 0)
             - ((analysis.totals && analysis.totals.faturaPlataforma) || analysis.btfInvoice || 0);
         const mediaMensalBase = mesesComDados > 0 ? (baseOmissaoCustos / mesesComDados) : 0;
-        const impactoSeteAnosMercado = mediaMensalBase * 38000 * 12 * 7;
+        const _fallbackSeteAnos = mediaMensalBase * 38000 * 12 * 7;
+        const impactoSeteAnosMercado = (analysis.danoCalculado > 0)
+            ? analysis.danoCalculado
+            : (_fallbackSeteAnos > 0
+                ? (console.warn('[SSoT] ⚠️ analysis.danoCalculado indisponível — a usar fallback escalar local:', _fallbackSeteAnos), _fallbackSeteAnos)
+                : 0);
+        // ─────────────────────────────────────────────────────────────────────
 
         let custodyLogs = analysis.custodyLog || [];
         if (window.ForensicLogger && typeof window.ForensicLogger.getLogs === 'function') {

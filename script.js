@@ -6814,6 +6814,29 @@ function performForensicCrossings() {
         cross.impactoSeteAnosMercado = cross.impactoAnualMercado * 7;
         console.warn('[Z-SCORE IC99] Fallback escalar activo — monthlyData insuficiente (' + seriesMensais.length + ' meses).');
     }
+
+    // ── SSoT danoCalculado ────────────────────────────────────────────────────
+    // Persistir o valor definitivo de impacto a 7 anos em analysis.danoCalculado
+    // imediatamente após o cálculo, como Fonte Única de Verdade (SSoT).
+    // Todos os exportadores (unifed_triada_export.js, enrichment.js) devem
+    // ler window.UNIFEDSystem.analysis.danoCalculado em vez de recalcular.
+    // Regra: apenas este ponto escreve neste campo durante o ciclo de análise.
+    UNIFEDSystem.analysis.danoCalculado = cross.impactoSeteAnosMercado;
+    ForensicLogger.addEntry('UNIFED_ANALYSIS_COMPLETE', {
+        danoCalculado:         cross.impactoSeteAnosMercado,
+        danoAnual:             cross.impactoAnualMercado,
+        danoMensal:            cross.impactoMensalMercado,
+        modoCalculo:           seriesMensais.length >= 2 ? 'MODO_B_ZSCORE_IC99' : 'MODO_A_ESCALAR',
+        nMotoristas:           38000,
+        projecaoAnos:          7,
+        sessionId:             window.getForensicSessionId()
+    });
+    // Disparar evento DOM para listeners em panel.html (reaplica layout grid)
+    // e qualquer outro módulo que escute UNIFED_ANALYSIS_COMPLETE.
+    document.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', {
+        detail: { danoCalculado: cross.impactoSeteAnosMercado }
+    }));
+    console.log('[SSoT] ✅ danoCalculado gravado: €' + cross.impactoSeteAnosMercado.toFixed(2));
     // ─────────────────────────────────────────────────────────────────────────
 
     cross.discrepancia5IMT     = cross.discrepanciaSaftVsDac7 * 0.05;
@@ -9491,6 +9514,7 @@ window._syncPureDashboard = (function() {
         const _now = Date.now();
         if (_now - lastSyncTime < 100) return 0; // throttle
         syncInProgress = true;
+        window._isSyncing = true; // expor para MutationObserver em translations.js
         lastSyncTime = _now;
         try {
             if (!system || !system.analysis) return 0;
@@ -9847,6 +9871,7 @@ window._syncPureDashboard = (function() {
             return updated;
         } finally {
             syncInProgress = false;
+            window._isSyncing = false;
         }
     };
 })();

@@ -413,18 +413,18 @@ window.initLanguageSwitcher = function() {
     // Executa a actualização inicial
     _updateUI();
 
-    // MutationObserver com throttle ajustado para 150ms (RETIFICAÇÃO R24: reduz re-renders)
+    // MutationObserver com throttle de 50ms (UNIFED-TRANS-RET-10: reduz re-renders
+    // de UI dinâmica; 150ms anterior causava glitch visível em alternância PT/EN rápida)
     let _updateUITimer = null;
     const observer = new MutationObserver(() => {
-        if(window._isTranslating) return;
-        window._isTranslating = true;
-        setTimeout(() => {
-            if(window.currentLang) window.translateAll();
-            window._isTranslating = false;
-        }, 150); // R24: 50ms → 150ms
+        if (window._isSyncing || window._isTranslating) return;
+        clearTimeout(_updateUITimer);
+        _updateUITimer = setTimeout(() => {
+            if (window.currentLang) window.translateAll();
+        }, 50);
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    console.log('[I18N] MutationObserver activo com flag _isTranslating.');
+    console.log('[I18N] MutationObserver activo (throttle: 50ms, guard: _isSyncing/_isTranslating).');
 
 
     // Expor função de tradução síncrona para uso externo (ex: após _syncPureDashboard)
