@@ -1128,10 +1128,26 @@ const validateNIF = (nif) => {
 };
 
 const formatCurrency = (value) => {
+    if (value === undefined || value === null || isNaN(value)) {
+        const _caller = (new Error()).stack ? (new Error()).stack.split('\n')[2] || 'desconhecido' : 'desconhecido';
+        console.error('[ERR-DATA-MISSING] formatCurrency recebeu valor inválido:', value, '| Origem:', _caller);
+        if (window.ForensicLogger && typeof window.ForensicLogger.addEntry === 'function') {
+            window.ForensicLogger.addEntry('ERR_DATA_MISSING', { fn: 'formatCurrency', value: String(value), origin: _caller });
+        }
+        return '0,00 €';
+    }
     return forensicRound(value).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 };
 
 const formatCurrencyEN = (value) => {
+    if (value === undefined || value === null || isNaN(value)) {
+        const _caller = (new Error()).stack ? (new Error()).stack.split('\n')[2] || 'unknown' : 'unknown';
+        console.error('[ERR-DATA-MISSING] formatCurrencyEN received invalid value:', value, '| Origin:', _caller);
+        if (window.ForensicLogger && typeof window.ForensicLogger.addEntry === 'function') {
+            window.ForensicLogger.addEntry('ERR_DATA_MISSING', { fn: 'formatCurrencyEN', value: String(value), origin: _caller });
+        }
+        return '0.00 €';
+    }
     return forensicRound(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 };
 
@@ -2905,7 +2921,7 @@ const translations = {
         dac7Q2: "2.º Trimestre",
         dac7Q3: "3.º Trimestre",
         dac7Q4: "4.º Trimestre",
-        quantumTitle: "CÁLCULO TRIBUTÁRIO TÉCNICO-JURÍDICA · PROVA RAINHA",
+        quantumTitle: "CÁLCULO TRIBUTÁRIO FORENSE · PROVA RAINHA",
         quantumFormula: "Diferencial de Base em Análise vs Faturada",
         quantumNote: "IVA 23% em falta: — | IVA 6% em falta: —",  // RETIFICAÇÃO 2B: placeholder residual suprimido — valores dinâmicos injectados em updateQuantumCard()
         quantumNoteIVA23: "IVA 23% em falta:",

@@ -326,9 +326,14 @@
     // Não sobrescreve definição global de script.js (fonte única — P13).
     if (!window.formatForensicCurrency) {
         window.formatForensicCurrency = function formatForensicCurrency(value) {
-            if (value === undefined || value === null) { return '0,00 €'; }
+            if (value === undefined || value === null || isNaN(Number(value))) {
+                console.error('[ERR-DATA-MISSING] formatForensicCurrency valor inválido:', value);
+                if (typeof window.ForensicLogger !== 'undefined' && typeof window.ForensicLogger.addEntry === 'function') {
+                    window.ForensicLogger.addEntry('ERR_DATA_MISSING', { fn: 'formatForensicCurrency', value: String(value) });
+                }
+                return '0,00 €';
+            }
             const num = Number(value);
-            if (isNaN(num)) { return '0,00 €'; }
             const [intPart, decPart] = num.toFixed(2).split('.');
             const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             return intFormatted + ',' + decPart + ' €';
