@@ -1796,9 +1796,11 @@ window.generateTemporalChartImage = async function generateTemporalChartImage(mo
                 });
             }
 
+            var _lang = window.currentLang || 'pt';
+            var _isEN = (_lang === 'en');
             var datasets = [
                 {
-                    label: 'Omissão Mensal (€)',
+                    label: _isEN ? 'Monthly Omission (€)' : 'Omissão Mensal (€)',
                     data: discSeries,
                     borderColor: '#00E5FF',
                     backgroundColor: 'rgba(0,229,255,0.08)',
@@ -1808,7 +1810,7 @@ window.generateTemporalChartImage = async function generateTemporalChartImage(mo
                     fill: true
                 },
                 {
-                    label: 'IVA em Falta (€)',
+                    label: _isEN ? 'Missing VAT (€)' : 'IVA em Falta (€)',
                     data: ivaSeries,
                     borderColor: '#F59E0B',
                     backgroundColor: 'rgba(245,158,11,0.06)',
@@ -1823,7 +1825,7 @@ window.generateTemporalChartImage = async function generateTemporalChartImage(mo
                 // Padding nulo para alinhar previsão após os dados históricos
                 var nullPad = discSeries.map(function(){ return null; });
                 datasets.push({
-                    label: 'Previsão 6M — Omissão (Nexus ATF)',
+                    label: _isEN ? '6M Forecast — Omission (Nexus ATF)' : 'Previsão 6M — Omissão (Nexus ATF)',
                     data: nullPad.concat(forecast.discSeries),
                     borderColor: '#EF4444',
                     backgroundColor: 'rgba(239,68,68,0.08)',
@@ -1833,7 +1835,7 @@ window.generateTemporalChartImage = async function generateTemporalChartImage(mo
                     fill: false
                 });
                 datasets.push({
-                    label: 'Previsão 6M — IVA em Falta (Nexus ATF)',
+                    label: _isEN ? '6M Forecast — Missing VAT (Nexus ATF)' : 'Previsão 6M — IVA em Falta (Nexus ATF)',
                     data: nullPad.concat(forecast.ivaSeries),
                     borderColor: '#F97316',
                     pointRadius: 3,

@@ -1638,24 +1638,39 @@
         const asfixiaFinanceira = m.saftGross * 0.06;                   // 493,68 € aprox.
         const contribuicaoIMT = omissaoReceita * 0.05;                  // 23,64 €
 
-        // ── PATCH C — patch_unifed_macro_v13 (bloco atómico unificado) ────────
-        // Consolida projeções micro e macroeconómicas numa base única derivada
-        // de mediaMensalOmissao, garantindo coerência interna da tabela fiscal.
-        // Checksum: (2136.59 / 4) * 38000 * 12 * 7 = 1.704.998.820,00 €
-        //
-        // EXTRAÇÃO DA MÉDIA MENSAL (BASE UNIFICADA)
-        const mesesPeriodo       = m.dataMonths ? m.dataMonths.length : 4;
-        const mediaMensalOmissao = mesesPeriodo > 0 ? (omissaoCustos / mesesPeriodo) : 0;
-
-        // PROJEÇÃO MICROECONÓMICA (SUJEITO PASSIVO)
+        // PROJEÇÃO MICROECONÓMICA (SUJEITO PASSIVO) — mantém-se local
+        // Base: omissaoCustos específica do caso (correto — não usa mercado)
+        const mesesPeriodo              = m.dataMonths ? m.dataMonths.length : 4;
+        const mediaMensalOmissao        = mesesPeriodo > 0 ? (omissaoCustos / mesesPeriodo) : 0;
         const impactoAnualOmissaoCustos = mediaMensalOmissao * 12;
         const ircEstimado               = impactoAnualOmissaoCustos * 0.21;
 
-        // PROJEÇÃO MACROECONÓMICA (MERCADO)
-        const impactoMensal38k = mediaMensalOmissao * 38000;
+        // ── CORREÇÃO AUDITORIA-2B (SSoT projeção macroeconómica) ─────────────
+        // ANTERIOR (PATCH C): impactoMensal38k/impactoAnual38k/impacto7Anos
+        // eram calculados a partir de mediaMensalOmissao (média aritmética simples),
+        // divergindo do valor Z-Score IC99% exibido no dashboard.
+        // CORRIGIDO: ler directamente de m.impactoSeteAnosMercado (já propagado
+        // pelo SSoT — analysis.danoCalculado — para o objeto 'm' via getSystemMetrics).
+        // Log de diagnóstico se divergência for detectada (não bloqueia exportação).
+        const _ssotSeteAnos   = (m.impactoSeteAnosMercado > 0) ? m.impactoSeteAnosMercado : null;
+        const _escalarSeteAnos = mediaMensalOmissao * 38000 * 12 * 7; // controlo apenas
+        if (_ssotSeteAnos !== null && Math.abs(_ssotSeteAnos - _escalarSeteAnos) > 1) {
+            console.warn('[DIAGNÓSTICO AUDITORIA-2B] Diferença SSoT vs. escalar:',
+                Math.abs(_ssotSeteAnos - _escalarSeteAnos).toFixed(2),
+                '€ — usando SSoT (Z-Score IC99%).');
+        }
+        if (_ssotSeteAnos === null) {
+            console.error('[ERR-DATA-MISSING] fiscalImpactTable: m.impactoSeteAnosMercado indisponível.');
+            if (typeof window.ForensicLogger !== 'undefined' && typeof window.ForensicLogger.addEntry === 'function') {
+                window.ForensicLogger.addEntry('ERR_DATA_MISSING', { fn: 'gerarBlobParecerTecnicoForense_fiscalImpactTable', field: 'm.impactoSeteAnosMercado' });
+            }
+        }
+        const impactoMensal38k = _ssotSeteAnos !== null
+            ? (_ssotSeteAnos / 12 / 7)  // derivado do SSoT para coerência
+            : 0;
         const impactoAnual38k  = impactoMensal38k * 12;
-        const impacto7Anos     = impactoAnual38k  * 7;
-        // ─────────────────────────────────────────────────────────────────────
+        const impacto7Anos     = _ssotSeteAnos || 0;
+        // ── FIM CORREÇÃO AUDITORIA-2B ────────────────────────────────────────
 
         // Datas e timestamps
         const now = new Date();

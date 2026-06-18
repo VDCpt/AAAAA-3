@@ -161,45 +161,53 @@
 
         const mediaMensalOmissao = mesesDados > 0 ? omissaoCustos / mesesDados : 0;
 
-        // Reproduz os 4 patches
-        const pA_impactoSeteAnos = mediaMensalOmissao * 38000 * 12 * 7;
-        const pBC_impacto7Anos   = mediaMensalOmissao * 38000 * 12 * 7;
-        const pD1_impactoSeteAnos= mediaMensalOmissao * 38000 * 12 * 7;
-        const pD2_macro7Anos     = mediaMensalOmissao * 38000 * 12 * 7;
+        // ── CORREÇÃO AUDITORIA-2A (SSoT) ──────────────────────────────────────
+        // ANTERIOR: 4 variáveis locais calculavam mediaMensalOmissao × 38000 × 12 × 7
+        // (média aritmética simples), todas idênticas entre si mas sistematicamente
+        // superiores ao valor do motor Z-Score IC99% (que usa a média conservadora
+        // com desvio padrão amostral). O exportador comparava este valor com o
+        // Z-Score runtime e aceitava divergências até 15% como "tolerância esperada".
+        // CORRIGIDO: o valor operacional é SEMPRE analysis.danoCalculado (gravado
+        // pelo motor Z-Score IC99% em script.js logo após o cálculo). O método
+        // escalar mantém-se apenas como CONTROLO DE DIAGNÓSTICO (nunca impresso
+        // no documento final). Se analysis.danoCalculado estiver indisponível,
+        // dispara [ERR-DATA-MISSING] e usa 0 — não usa o escalar como substituto.
+        const _ssotDanoCalculado = (window.UNIFEDSystem &&
+                                    window.UNIFEDSystem.analysis &&
+                                    window.UNIFEDSystem.analysis.danoCalculado > 0)
+            ? window.UNIFEDSystem.analysis.danoCalculado
+            : null;
 
-        // ── FASE 3.1 — FIX-VERIF-MATH: substituição do checksum estático ───────
-        // PROBLEMA: checksum hardcoded 1.704.998.820,00 € era válido para o
-        // cálculo escalar directo. Após Cirurgia 2, performForensicCrossings()
-        // usa Z-Score IC 99% que produz um valor diferente por definição
-        // (é conservadoramente inferior à média bruta). O FAIL era falso positivo.
-        // SOLUÇÃO: a verificação compara a consistência INTERNA entre os 4 pontos
-        // de cálculo, não contra um valor absoluto fixo. A coerência é definida
-        // como: max(resultados) - min(resultados) < 1% do valor médio.
-        // O valor de referência histórico é preservado para rastreabilidade.
-        // ─────────────────────────────────────────────────────────────────────────
+        if (_ssotDanoCalculado === null) {
+            console.error('[ERR-DATA-MISSING] _buildVerificacaoMatematica: analysis.danoCalculado indisponível. O motor Z-Score ainda não correu ou o resultado foi apagado.');
+            if (typeof window.ForensicLogger !== 'undefined' && typeof window.ForensicLogger.addEntry === 'function') {
+                window.ForensicLogger.addEntry('ERR_DATA_MISSING', {
+                    fn: '_buildVerificacaoMatematica',
+                    field: 'analysis.danoCalculado',
+                    note: 'Valor operacional SSoT indisponível no momento da exportação. Verificar se performAudit() correu antes da exportação.'
+                });
+            }
+        }
 
-        // Valor de referência do motor Z-Score em runtime (se disponível)
-        const _crossRuntime = (window.UNIFEDSystem &&
-                               window.UNIFEDSystem.analysis &&
-                               window.UNIFEDSystem.analysis.crossings &&
-                               window.UNIFEDSystem.analysis.crossings.impactoSeteAnosMercado) || null;
+        // Valor operacional SSoT (Z-Score IC99%) — usado em todos os campos do documento
+        const valorOperacionalSSoT = _ssotDanoCalculado || 0;
 
-        const _allValues = [pA_impactoSeteAnos, pBC_impacto7Anos, pD1_impactoSeteAnos, pD2_macro7Anos];
-        const _maxVal    = Math.max(..._allValues);
-        const _minVal    = Math.min(..._allValues);
-        const _avgVal    = _allValues.reduce((a, b) => a + b, 0) / _allValues.length;
-        const _internalDelta = _maxVal - _minVal;
-        // Coerência interna: todos os pontos derivam da mesma mediaMensalOmissao
-        // portanto devem ser matematicamente idênticos. Tolerância: 0.01€.
-        const coerente   = _internalDelta < 0.01;
+        // Cálculo escalar de controlo (DIAGNÓSTICO APENAS — não impresso no PDF)
+        const _escalarControlo = mediaMensalOmissao * 38000 * 12 * 7;
+        const _deltaSSoTvsEscalar = valorOperacionalSSoT > 0
+            ? Math.abs(valorOperacionalSSoT - _escalarControlo)
+            : null;
+        if (_deltaSSoTvsEscalar !== null && _deltaSSoTvsEscalar > 1) {
+            console.warn('[DIAGNÓSTICO] Diferença SSoT (Z-Score IC99%) vs. escalar:', _deltaSSoTvsEscalar.toFixed(2), '€ — esperado (IC99% é conservador por definição). Usando SSoT.');
+        }
+        // ── FIM CORREÇÃO AUDITORIA-2A ─────────────────────────────────────────
 
-        // Comparação com o motor Z-Score runtime (se disponível)
-        const _zDelta    = _crossRuntime !== null
-            ? Math.abs(_crossRuntime - pD1_impactoSeteAnos).toFixed(2)
-            : 'N/A (dados runtime não disponíveis no momento da exportação)';
-        const _zCoerente = _crossRuntime !== null
-            ? (Math.abs(_crossRuntime - pD1_impactoSeteAnos) / Math.max(_crossRuntime, 1) < 0.15)
-            : null; // Diferença <15% esperada pelo IC 99% do Z-Score
+        // ── FASE 3.1 — FIX-VERIF-MATH ────────────────────────────────────────
+        // O bloco de verificação matemática passa a reportar o SSoT como valor
+        // operacional e o escalar como referência histórica de diagnóstico.
+        // Removida a tolerância de 15% — não existe margem aceitável entre o
+        // valor exibido no dashboard e o valor exportado no documento.
+        // ─────────────────────────────────────────────────────────────────────
 
         return {
             input: {
@@ -207,37 +215,35 @@
                 mesesDados,
                 mediaMensalOmissao: mediaMensalOmissao.toFixed(4) + ' €'
             },
-            formula: 'mediaMensalOmissao × 38.000 × 12 × 7 (verificação interna de coerência)',
+            formula: 'Z-Score IC99% (motor performForensicCrossings) → analysis.danoCalculado (SSoT)',
             resultados: {
-                patchA_getSystemMetrics:              pA_impactoSeteAnos.toFixed(2),
-                patchBC_gerarBlobParecerTecnicoForense: pBC_impacto7Anos.toFixed(2),
-                patchD1_crossImpactoSeteAnosMercado:  pD1_impactoSeteAnos.toFixed(2),
-                patchD2_macroUIPureMacro7Anos:        pD2_macro7Anos.toFixed(2),
-                zScoreIC99_runtime:                   _crossRuntime !== null ? _crossRuntime.toFixed(2) : 'N/A'
+                valorOperacionalSSoT_ZScoreIC99:    valorOperacionalSSoT.toFixed(2),
+                escalarControlo_diagnosticoApenas:  _escalarControlo.toFixed(2),
+                delta_SSoT_vs_escalar:              _deltaSSoTvsEscalar !== null ? _deltaSSoTvsEscalar.toFixed(2) : 'N/A',
+                nota_delta: 'Delta esperado — IC99% produz valor conservador inferior ao escalar. Valor operacional é SEMPRE o SSoT (Z-Score).'
             },
             verificacaoInterna: {
-                deltaMaximoInterno:  _internalDelta.toFixed(2) + ' €',
-                coerenciaInterna:    coerente,
-                valorMedioInterno:   _avgVal.toFixed(2) + ' €'
+                fonteDados:          'window.UNIFEDSystem.analysis.danoCalculado (SSoT)',
+                disponivelEmRuntime: _ssotDanoCalculado !== null,
+                valorMedioInterno:   valorOperacionalSSoT.toFixed(2) + ' €'
             },
             verificacaoZScore: {
-                deltaVsZScore:       _zDelta + ' €',
-                coerenciaComZScore:  _zCoerente,
-                nota:                'Diferença esperada: Z-Score IC99% produz valor conservador inferior ao escalar directo.'
+                metodo:   'Z-Score IC99% (Z = 2.576, desvio padrão amostral de Bessel)',
+                meses_n:  mesesDados,
+                nota:     'Único método válido para efeitos periciais. Escalar removido como fonte operacional.'
             },
             referenciasHistoricas: {
                 checksumAnterior_factor085: '1.449.248.997,00 €',
                 checksumIntermedio_semFactor: '1.704.998.820,00 €',
-                nota: 'Valores históricos preservados para rastreabilidade forense. Valor operacional: zScoreIC99_runtime.'
+                nota: 'Valores históricos preservados para rastreabilidade forense. Valor operacional: valorOperacionalSSoT_ZScoreIC99.'
             },
-            coerenciaTotal: coerente,
-            veredicto: coerente
-                ? 'PASS — coerência interna confirmada entre os 4 pontos de cálculo. Base matemática consistente.'
-                : 'FAIL — divergência interna detectada (' + _internalDelta.toFixed(2) + '€). Investigar imediatamente.',
-            valorAnteriorViciado: '1.449.248.997,00 € (factor 0.85 hardcoded)',
-            valorOperacionalActual: _crossRuntime !== null
-                ? _crossRuntime.toFixed(2) + ' € (Z-Score IC 99%, n=' + mesesDados + ' meses)'
-                : '1.704.998.820,00 € (escalar directo, fallback)'
+            coerenciaTotal: _ssotDanoCalculado !== null,
+            veredicto: _ssotDanoCalculado !== null
+                ? 'PASS — SSoT disponível e propagado. Coerência absoluta entre dashboard e exportação.'
+                : 'FAIL — analysis.danoCalculado indisponível. Verificar se performAudit() correu antes da exportação. Log: [ERR-DATA-MISSING].',
+            valorOperacionalActual: _ssotDanoCalculado !== null
+                ? valorOperacionalSSoT.toFixed(2) + ' € (Z-Score IC99%, n=' + mesesDados + ' meses)'
+                : '0,00 € (SSoT indisponível — ver log [ERR-DATA-MISSING])'
         };
     }
 

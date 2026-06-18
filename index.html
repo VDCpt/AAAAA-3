@@ -480,7 +480,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                 </div>
                 <div class="action-buttons">
                     <button id="startAnalysisBtn" class="splash-btn primary">
-                        <i class="fas fa-power-off"></i> INICIAR METODOLOGIA DE ANÁLISE
+                        <i class="fas fa-power-off"></i> <span data-pt="INICIAR METODOLOGIA DE ANÁLISE" data-en="START ANALYSIS METHODOLOGY">INICIAR METODOLOGIA DE ANÁLISE</span>
                     </button>
                     <p class="declaration-text">Estado: Cadeia de Custódia (CSC) Ativa</p>
                 </div>
@@ -527,7 +527,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                 </div>
                 <div class="control-group">
                     <button id="closeMethodologyBtn" style="height:38px; font-size:11px; background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#ef4444; cursor:pointer; border-radius:6px; transition:all 0.3s; padding:0 16px; font-weight:bold; white-space:nowrap; margin-right:8px;" data-pt="🛑 Encerrar Sessão Técnico-Jurídica" data-en="🛑 Terminate Forensic Session">🛑 Encerrar Sessão Técnico-Jurídica</button>
-                    <button id="demoModeBtn" class="btn-demo-nav"><i class="fas fa-flask"></i><span id="demoBtnText">CASO REAL (ANONIMIZADO)</span></button>
+                    <button id="demoModeBtn" class="btn-demo-nav"><i class="fas fa-flask"></i><span id="demoBtnText" data-pt="CASO REAL (ANONIMIZADO)" data-en="REAL CASE (ANONYMIZED)">CASO REAL (ANONIMIZADO)</span></button>
                     <button id="langToggleBtn" class="btn-lang-toggle"><i class="fas fa-globe"></i><span id="currentLangLabel">PT</span></button>
                     <button id="viewLogsHeaderBtn" class="btn-tool" title="Ver Registo de Atividades (Art. 30 RGPD)"><i class="fas fa-history"></i></button>
                 </div>
@@ -616,7 +616,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
 
                 <div class="evidence-management-section-solid">
                     <button id="openEvidenceModalBtn" class="evidence-management-btn-solid">
-                        <span><i class="fas fa-folder-open"></i> <span id="btnEvidence">GESTÃO DE EVIDÊNCIAS</span></span>
+                        <span><i class="fas fa-folder-open"></i> <span id="btnEvidence" data-pt="GESTÃO DE EVIDÊNCIAS" data-en="EVIDENCE MANAGEMENT">GESTÃO DE EVIDÊNCIAS</span></span>
                         <span id="evidenceCountTotal" class="evidence-count-solid">0</span>
                     </button>
                     <div class="counters-compact">
@@ -627,7 +627,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                         <div class="counter-item-compact"><span id="dac7CountCompact" class="counter-value-compact">0</span><span class="counter-label-compact">DAC7</span></div>
                     </div>
                     <button id="analyzeBtn" class="btn-forensic" disabled>
-                        <i class="fas fa-search-dollar"></i> <span id="btnAnalyze">EXECUTAR CONSULTORIA TÉCNICA</span>
+                        <i class="fas fa-search-dollar"></i> <span id="btnAnalyze" data-pt="EXECUTAR CONSULTORIA TÉCNICA" data-en="EXECUTE FORENSIC ANALYSIS">EXECUTAR CONSULTORIA TÉCNICA</span>
                     </button>
                 </div>
 
@@ -644,7 +644,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                         <span data-pt="Processamento 100% local (browser)" data-en="100% local processing (browser)">Processamento 100% local (browser)</span></span>
                     </div>
                     <button id="forensicWipeBtn" class="btn-wipe">
-                        <i class="fas fa-broom"></i> <span id="wipeBtnText">PURGA TOTAL DE DADOS (LIMPEZA BINÁRIA)</span>
+                        <i class="fas fa-broom"></i> <span id="wipeBtnText" data-pt="PURGA TOTAL DE DADOS (LIMPEZA BINÁRIA)" data-en="TOTAL DATA WIPE (BINARY PURGE)">PURGA TOTAL DE DADOS (LIMPEZA BINÁRIA)</span>
                     </button>
                 </div>
             </aside>
@@ -1024,7 +1024,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
       <div class="pure-wc-indicator" style="grid-column: span 1; background: #0f172a; border-left: 3px solid #eab308;">
         <div class="pure-impacto-panel" style="padding: 8px 0;">
           <div class="pure-badge-simulacao" style="background:#eab308; color:#000; padding:2px 6px; font-size:10px; font-weight:bold; margin-bottom:5px; display:inline-block;" data-pt="SIMULAÇÃO MACROECONÓMICA" data-en="MACROECONOMIC SIMULATION">SIMULAÇÃO MACROECONÓMICA</div>
-          <div style="font-size:12px; margin:4px 0;">Média mensal: <span id="pure-macro-media" class="pure-mono" style="color:#facc15;" data-i18n-ignore>0,00 €</span></div>
+          <div style="font-size:12px; margin:4px 0;"><span data-pt="Média Mensal Omissão (Operador):" data-en="Avg Monthly Omission (Operator):">Média Mensal Omissão (Operador):</span> <span id="pure-macro-media" class="pure-mono" style="color:#facc15;" data-i18n-ignore>0,00 €</span></div>
           <div style="font-size:12px; margin:4px 0;">Impacto Mensal Mercado Estimado (38k): <span id="pure-macro-mensal" class="pure-mono" style="color:#facc15;" data-i18n-ignore>0,00 €</span></div>
           <div style="font-size:12px; margin:4px 0;">Impacto Anual Mercado Estimado: <span id="pure-macro-anual" class="pure-mono" style="color:#facc15;" data-i18n-ignore>0,00 €</span></div>
           <div style="border-top:1px solid #334155; margin-top:5px; padding-top:5px; font-weight:bold; font-size:12px;">
@@ -1633,12 +1633,12 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                             <button id="otsSealBtn" style="display:none; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.3);
                                        color:#4ade80; padding:8px 20px; border-radius:4px; cursor:pointer;
                                        font-family:'JetBrains Mono',monospace; font-size:0.75rem; letter-spacing:1px;">
-                                <i class="fas fa-stamp"></i> SELAR OTS (RFC 3161) <span style="font-size:0.6rem;opacity:0.65;display:block;margin-top:2px;">Selagem RFC 3161 simulada localmente em demonstração</span>
+                                <i class="fas fa-stamp"></i> <span data-pt="SELAR OTS (RFC 3161)" data-en="SEAL OTS (RFC 3161)">SELAR OTS (RFC 3161)</span> <span style="font-size:0.6rem;opacity:0.65;display:block;margin-top:2px;" data-pt="Selagem RFC 3161 simulada localmente em demonstração" data-en="RFC 3161 seal simulated locally in demonstration mode">Selagem RFC 3161 simulada localmente em demonstração</span>
                             </button>
                             <button id="nivel2SealBtn" style="display:none; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3);
                                        color:#f59e0b; padding:8px 20px; border-radius:4px; cursor:pointer;
                                        font-family:'JetBrains Mono',monospace; font-size:0.75rem; letter-spacing:1px;">
-                                <i class="fas fa-shield-alt"></i> SELAGEM NÍVEL 2
+                                <i class="fas fa-shield-alt"></i> <span data-pt="SELAGEM NÍVEL 2" data-en="LEVEL 2 SEAL">SELAGEM NÍVEL 2</span>
                             </button>
                         </div>
 
@@ -1759,13 +1759,13 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                         background:rgba(0,229,255,0.1); border:1px solid #00e5ff; color:#00e5ff;
                         padding:0.6rem 1.4rem; border-radius:4px; cursor:pointer;
                         font-family:'JetBrains Mono',monospace; font-size:0.8rem; font-weight:bold; letter-spacing:1px;">
-                        <i class="fas fa-check-circle"></i> <span>SELAR EVIDÊNCIAS</span>
+                        <i class="fas fa-check-circle"></i> <span data-pt="SELAR EVIDÊNCIAS" data-en="SEAL EVIDENCE">SELAR EVIDÊNCIAS</span>
                     </button>
                     <button id="closeAndSaveBtn" style="
                         background:rgba(100,116,139,0.1); border:1px solid #475569; color:#94a3b8;
                         padding:0.6rem 1.4rem; border-radius:4px; cursor:pointer;
                         font-family:'JetBrains Mono',monospace; font-size:0.8rem; letter-spacing:1px;">
-                        <i class="fas fa-times"></i> Fechar
+                        <i class="fas fa-times"></i> <span data-pt="Fechar" data-en="Close">Fechar</span>
                     </button>
                 </div>
 
@@ -1798,7 +1798,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
 
             <div style="display:flex; gap:0.75rem; justify-content:flex-end; padding:0.75rem 1.5rem; border-top:1px solid #1e293b; flex-wrap:wrap;">
                 <button id="exportLogsBtn" style="background:rgba(0,229,255,0.08); border:1px solid rgba(0,229,255,0.3); color:#00e5ff; padding:0.5rem 1rem; border-radius:4px; cursor:pointer; font-family:'JetBrains Mono',monospace; font-size:0.75rem;">
-                    <i class="fas fa-download"></i> <span id="exportLogsBtnText">EXPORTAR LOGS (JSON)</span>
+                    <i class="fas fa-download"></i> <span id="exportLogsBtnText" data-pt="EXPORTAR LOGS (JSON)" data-en="EXPORT LOGS (JSON)">EXPORTAR LOGS (JSON)</span>
                 </button>
                 <button id="clearLogsBtn" style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); color:#ef4444; padding:0.5rem 1rem; border-radius:4px; cursor:pointer; font-family:'JetBrains Mono',monospace; font-size:0.75rem;">
                     <i class="fas fa-trash"></i> <span id="clearLogsBtnText">LIMPAR LOGS</span>

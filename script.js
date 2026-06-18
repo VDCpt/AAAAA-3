@@ -6822,22 +6822,23 @@ function performForensicCrossings() {
         cross.impactoAnualMercado    = danoAnualIC99;
         cross.impactoMensalMercado   = danoAnualIC99 / 12;
         cross.impactoSeteAnosMercado = danoAnualIC99 * 7;
+        // Média aritmética real das discrepâncias mensais do operador individual
+        // (DISTINTA de macroMedia = impactoMensalMercado/38000, que é o impacto
+        // por condutor no mercado após aplicação do IC99%)
+        cross.mediaMensalReal = seriesMensais.reduce((a, b) => a + b, 0) / seriesMensais.length;
         console.log('[Z-SCORE IC99] Cálculo estatístico activo — Dano Anual Apurado: €' + danoAnualIC99.toFixed(2));
     } else {
         // Modo A — fallback escalar determinístico (< 2 meses de dados)
         cross.impactoMensalMercado   = discrepanciaMensalMedia * 38000;
         cross.impactoAnualMercado    = cross.impactoMensalMercado * 12;
         cross.impactoSeteAnosMercado = cross.impactoAnualMercado * 7;
+        cross.mediaMensalReal        = discrepanciaMensalMedia;
         console.warn('[Z-SCORE IC99] Fallback escalar activo — monthlyData insuficiente (' + seriesMensais.length + ' meses).');
     }
 
-    // ── SSoT danoCalculado ────────────────────────────────────────────────────
-    // Persistir o valor definitivo de impacto a 7 anos em analysis.danoCalculado
-    // imediatamente após o cálculo, como Fonte Única de Verdade (SSoT).
-    // Todos os exportadores (unifed_triada_export.js, enrichment.js) devem
-    // ler window.UNIFEDSystem.analysis.danoCalculado em vez de recalcular.
-    // Regra: apenas este ponto escreve neste campo durante o ciclo de análise.
-    UNIFEDSystem.analysis.danoCalculado = cross.impactoSeteAnosMercado;
+    // ── SSoT danoCalculado + mediaMensalReal ──────────────────────────────────
+    UNIFEDSystem.analysis.danoCalculado   = cross.impactoSeteAnosMercado;
+    UNIFEDSystem.analysis.mediaMensalReal = cross.mediaMensalReal;
     ForensicLogger.addEntry('UNIFED_ANALYSIS_COMPLETE', {
         danoCalculado:         cross.impactoSeteAnosMercado,
         danoAnual:             cross.impactoAnualMercado,
@@ -9706,30 +9707,36 @@ window._syncPureDashboard = (function() {
             // cross.discrepanciaCritica e system.dataMonths.size (media mensal real).
             // Os spans têm IDs dedicados (pure-macro-*) adicionados ao panel HTML.
             // ── RECTIFICAÇÃO R24-MACRO (rev. P3.1d) ───────────────────────────────────
-            // ANTERIOR: macroMedia derivava de cross.discrepanciaCritica / macroMeses,
-            // recalculando macroMensal/Anual/7Anos com um factor 38000 aplicado em
-            // PARALELO ao motor estatístico Z-Score IC99% (calcularDanoConservador,
-            // ver linhas ~6432-6447). Os dois cálculos produziam valores divergentes
-            // sempre que o fallback escalar (Modo A) não coincidia com o Modo B.
-            // CORRIGIDO: ler directamente cross.impactoMensalMercado / AnualMercado /
-            // SeteAnosMercado — já calculados pelo motor analítico (Modo B com IC99%
-            // ou Modo A de fallback). macroMedia é derivado por divisão inversa do
-            // mesmo valor (impactoMensalMercado / 38000), tal como _mediaMensalOmissao
-            // (linha ~9261), garantindo fonte única e coerência entre indicadores.
+            // ── CORRECÇÃO LABEL pure-macro-media (Auditoria i18n / divergência semântica) ──
+            // ANTERIOR: pure-macro-media exibia macroMedia = impactoMensalMercado / 38000,
+            // ou seja, o impacto médio por condutor no mercado após IC99% (grandeza
+            // macroeconómica derivada). O label "Média mensal:" induzia em erro: um perito
+            // de contra-parte compararia este valor com a média de omissão do operador
+            // individual (534,15 €) e apontaria inconsistência (74,78 € ≠ 534,15 €).
+            // São grandezas distintas com denominadores diferentes.
+            // CORRIGIDO: pure-macro-media exibe analysis.mediaMensalReal (média aritmética
+            // das discrepâncias mensais do operador, persistida em performForensicCrossings).
+            // macroMedia mantém-se como variável interna para derivar macroMensal.
             const macroMedia    = (cross.impactoMensalMercado || 0) / 38000;
             const macroMensal   = cross.impactoMensalMercado   || 0;
             const macroAnual    = cross.impactoAnualMercado    || 0;
             const macro7Anos    = cross.impactoSeteAnosMercado || 0;
+            // Média mensal real do operador individual (≠ macroMedia)
+            const mediaMensalOperador = (system.analysis && system.analysis.mediaMensalReal > 0)
+                ? system.analysis.mediaMensalReal
+                : ((cross.discrepanciaCritica || 0) / Math.max((system.dataMonths && system.dataMonths.size) || 1, 1));
             const fmtMacro = window.formatForensicCurrency || fmt;
             const macroMediaEl  = document.getElementById('pure-macro-media');
             const macroMensalEl = document.getElementById('pure-macro-mensal');
             const macroAnualEl  = document.getElementById('pure-macro-anual');
             const macro7AnosEl  = document.getElementById('pure-macro-7anos');
-            if (macroMediaEl)  { macroMediaEl.innerText  = fmtMacro(macroMedia);  updated++; }
-            if (macroMensalEl) { macroMensalEl.innerText = fmtMacro(macroMensal); updated++; }
-            if (macroAnualEl)  { macroAnualEl.innerText  = fmtMacro(macroAnual);  updated++; }
-            if (macro7AnosEl)  { macro7AnosEl.innerText  = fmtMacro(macro7Anos);  updated++; }
-            // ── FIM RECTIFICAÇÃO R24-MACRO ────────────────────────────────────────────
+            // pure-macro-media mostra a média mensal real do operador (534,15 €),
+            // não o impacto por condutor no mercado (macroMedia = 74,78 €).
+            if (macroMediaEl)  { macroMediaEl.innerText  = fmtMacro(mediaMensalOperador); updated++; }
+            if (macroMensalEl) { macroMensalEl.innerText = fmtMacro(macroMensal);         updated++; }
+            if (macroAnualEl)  { macroAnualEl.innerText  = fmtMacro(macroAnual);          updated++; }
+            if (macro7AnosEl)  { macro7AnosEl.innerText  = fmtMacro(macro7Anos);          updated++; }
+            // ── FIM CORRECÇÃO pure-macro-media ───────────────────────────────────────
 
             // ── RECTIFICAÇÃO R24-ATF ──────────────────────────────────────────────────
             // Calcular Score de Persistência (SP) a partir de monthlyData.
