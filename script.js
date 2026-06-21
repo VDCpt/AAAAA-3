@@ -681,7 +681,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.UNIFEDSystem.analysis.top3Accepted = true;
                 window.UNIFEDSystem.analysis.acceptTimestamp = new Date().toISOString();
             }
-            alert('✅ TOP 3 Confirmado. Proceda com Exportação dos Pacotes (Advogado ou Analista).');
+            alert(window.currentLang === 'en'
+                ? '✅ TOP 3 Confirmed. Proceed with exporting the packages (Lawyer or Analyst).'
+                : '✅ TOP 3 Confirmado. Proceda com Exportação dos Pacotes (Advogado ou Analista).');
         });
 
         acceptBtn.addEventListener('mouseover', function() {
@@ -4814,13 +4816,13 @@ if (modalSaveBtn) {
     const exportDOCXBtn = document.getElementById('exportDOCXBtn');
     if (exportDOCXBtn) exportDOCXBtn.addEventListener('click', () => {
         if (typeof window.exportDOCX === 'function') window.exportDOCX();
-        else showToast('Módulo DOCX não disponível.', 'error');
+        else showToast((window.currentLang === 'en' ? 'DOCX module unavailable.' : 'Módulo DOCX não disponível.'), 'error');
     });
 
     const atfBtn = document.getElementById('atfModalBtn');
     if (atfBtn) atfBtn.addEventListener('click', () => {
         if (typeof window.openATFModal === 'function') window.openATFModal();
-        else showToast('Módulo ATF não disponível.', 'warning');
+        else showToast((window.currentLang === 'en' ? 'ATF module unavailable.' : 'Módulo ATF não disponível.'), 'warning');
     });
 
     const exportAnalystBtn = document.getElementById('exportAnalystBtn');
@@ -4833,7 +4835,7 @@ if (modalSaveBtn) {
                 if (!gateOk) { console.error('[HMAC·GATE] Exportação bloqueada'); return; }
                 window._exportPacoteAnalista().catch(err => console.error('[EXPORT] Analista:', err.message));
             } else {
-                showToast('Função de exportação analista não disponível.', 'error');
+                showToast((window.currentLang === 'en' ? 'Analyst export function unavailable.' : 'Função de exportação analista não disponível.'), 'error');
             }
         });
         exportAnalystBtn._triadaBound = true;
@@ -4849,7 +4851,7 @@ if (modalSaveBtn) {
                 if (!gateOk) { console.error('[HMAC·GATE] Exportação bloqueada'); return; }
                 window._exportPacoteAdvogado().catch(err => console.error('[EXPORT] Advogado:', err.message));
             } else {
-                showToast('Função de exportação advogado não disponível.', 'error');
+                showToast((window.currentLang === 'en' ? 'Lawyer export function unavailable.' : 'Função de exportação advogado não disponível.'), 'error');
             }
         });
         exportLawyerBtn._triadaBound = true;
@@ -4863,7 +4865,7 @@ if (modalSaveBtn) {
             } else if (typeof window.exportDOCX === 'function') {
                 window.exportDOCX();
             } else {
-                showToast('Módulo DOCX não disponível.', 'error');
+                showToast((window.currentLang === 'en' ? 'DOCX module unavailable.' : 'Módulo DOCX não disponível.'), 'error');
             }
         });
     }
@@ -4874,7 +4876,7 @@ if (modalSaveBtn) {
             if (typeof window.exportGraphics === 'function') {
                 window.exportGraphics();
             } else {
-                showToast('Exportação de gráficos em desenvolvimento.', 'info');
+                showToast((window.currentLang === 'en' ? 'Chart export under development.' : 'Exportação de gráficos em desenvolvimento.'), 'info');
             }
         });
     }
@@ -5100,8 +5102,8 @@ function registerClient() {
     const name = document.getElementById('clientNameFixed').value.trim();
     const nif = document.getElementById('clientNIFFixed').value.trim();
 
-    if (!name || name.length < 3) return showToast('Nome inválido', 'error');
-    if (!validateNIF(nif)) return showToast('NIF inválido (checksum falhou)', 'error');
+    if (!name || name.length < 3) return showToast((window.currentLang === 'en' ? 'Invalid name' : 'Nome inválido'), 'error');
+    if (!validateNIF(nif)) return showToast((window.currentLang === 'en' ? 'Invalid NIF (checksum failed)' : 'NIF inválido (checksum falhou)'), 'error');
 
     UNIFEDSystem.client = { name, nif, platform: UNIFEDSystem.selectedPlatform };
     localStorage.setItem('ifde_client_data_v12_8', JSON.stringify(UNIFEDSystem.client));
@@ -5144,7 +5146,15 @@ async function processFile(file, type) {
     if (typeof window.toggleSandboxBanner === 'function') {
         window.toggleSandboxBanner(false);
     }
-    window._isSyncing = false;
+    // ── AUDITORIA-3 / P4: escrita directa de window._isSyncing REMOVIDA ───────
+    // ANTERIOR: window._isSyncing = false era forçado aqui, fora do try/finally
+    // de _syncPureDashboard. Se um upload ocorresse enquanto _syncPureDashboard
+    // estava genuinamente em curso (syncInProgress = true), esta linha quebrava
+    // a exclusão mútua prematuramente — o MutationObserver de translations.js
+    // (guard: window._isSyncing) podia disparar translateAll() a meio de uma
+    // escrita do dashboard.
+    // CORRIGIDO: confia exclusivamente no finally de _syncPureDashboard
+    // (linha ~9941) para libertar o lock no momento certo.
     if (window.UNIFEDSystem) window.UNIFEDSystem.processing = false;
 
     const fileKey = `${file.name}_${file.size}_${file.lastModified}`;
@@ -6111,7 +6121,7 @@ async function performAudit() {
     const hasFiles = Object.values(UNIFEDSystem.documents).some(d => d.files && d.files.length > 0);
     if (!hasFiles) {
         ForensicLogger.addEntry('AUDIT_FAILED', { reason: 'No files' });
-        return showToast('Carregue pelo menos um ficheiro de evidência antes de executar a consultoria técnica.', 'error');
+        return showToast((window.currentLang === 'en' ? 'Upload at least one evidence file before running the analysis.' : 'Carregue pelo menos um ficheiro de evidência antes de executar a consultoria técnica.'), 'error');
     }
 
     UNIFEDSystem.forensicMetadata = getForensicMetadata();
@@ -6378,14 +6388,21 @@ async function performAudit() {
             window.currentLang = 'pt';
         }
 
-        window.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', {
-            detail: { systemData: UNIFEDSystem }
-        }));
-        console.log('[UNIFED-SYNC] ✅ UNIFED_ANALYSIS_COMPLETE despachado (systemData incluído).');
+        // ── AUDITORIA-3 / P1: dispatchEvent prematuro REMOVIDO deste ponto ────────
+        // ANTERIOR: window.dispatchEvent('UNIFED_ANALYSIS_COMPLETE') disparava AQUI,
+        // antes de _autoGenerateTop3() (TOP3/Merkle) e antes do _syncPureDashboard
+        // final (linha ~6439) terem sequer começado — listeners que dependem de
+        // analysis.top3Questions, merkleRoot, ou do DOM já sincronizado recebiam
+        // o evento demasiado cedo.
+        // CORRIGIDO: disparo único e consolidado movido para o fim do ciclo
+        // completo (após _autoGenerateTop3 + _syncPureDashboard + forceTranslateUI),
+        // em window E document simultaneamente — ver bloco "DISPARO CONSOLIDADO"
+        // mais abaixo nesta função.
+        console.log('[UNIFED-SYNC] ℹ️ Ciclo de análise em curso — evento UNIFED_ANALYSIS_COMPLETE será despachado no fecho do ciclo.');
 
         // FALHA 7 — R24: TOP 3 gerado automaticamente após análise.
         // Requisito de estabilidade forense: overlay bloqueia interação durante processamento cognitivo.
-        (async function _autoGenerateTop3() {
+        await (async function _autoGenerateTop3() {
             try {
                 if (window.UNIFED_AnalysisCognitive && window.UNIFEDSystem && window.UNIFEDSystem.analysis && window.UNIFEDSystem.analysis.btor) {
                     // Activar overlay de bloqueio (impede exportação com dados incompletos)
@@ -6426,8 +6443,9 @@ async function performAudit() {
             }
         })();
 
-// PERF-03: Sincronizações DOM adiadas 50 ms — não bloqueiam o event loop dos cálculos finais
-// PATCH P1 (cont.) — callback convertida para async para suportar await na linha seguinte.
+// PERF-03: Sincronizações DOM adiadas — não bloqueiam o event loop dos cálculos finais.
+// _autoGenerateTop3 já é aguardada (await) acima — o setTimeout aqui serve apenas
+// para garantir que o browser processa um repaint antes da sincronização final do DOM.
 setTimeout(async () => {
 if (typeof window._syncPureDashboard === 'function') {
     // ── PATCH P1 — patch_unifed_macro_v13 ────────────────────────────────────
@@ -6471,6 +6489,26 @@ else {
             window._activatePurePanel();
         }
 
+        // ── AUDITORIA-3 / P1: DISPARO CONSOLIDADO (ponto único, fim do ciclo) ─────
+        // Único local em todo o script.js onde UNIFED_ANALYSIS_COMPLETE é despachado.
+        // Disparado em window E document, atomicamente, com o mesmo payload, DEPOIS
+        // de: (a) performForensicCrossings ter persistido danoCalculado/mediaMensalReal
+        // (SSoT); (b) _autoGenerateTop3 (TOP3 + Merkle Root) ter terminado (await);
+        // (c) _syncPureDashboard ter sincronizado o DOM; (d) forceTranslateUI ter
+        // corrido. Garante que QUALQUER listener — independentemente de estar
+        // registado em window ou document (nexus.js, panel.html, script.js) —
+        // recebe o evento no mesmo instante e com o ciclo de análise já completo.
+        const _eventDetail = {
+            detail: {
+                systemData:     UNIFEDSystem,
+                danoCalculado:  (UNIFEDSystem.analysis && UNIFEDSystem.analysis.danoCalculado) || 0
+            }
+        };
+        window.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', _eventDetail));
+        document.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', _eventDetail));
+        console.log('[UNIFED-SYNC] ✅ UNIFED_ANALYSIS_COMPLETE despachado (window + document, ciclo completo).');
+        // ───────────────────────────────────────────────────────────────────────
+
         if (typeof generateQRCode === 'function') {
             generateQRCode();
         }
@@ -6501,7 +6539,16 @@ if (!UNIFEDSystem.demoMode && !UNIFEDSystem.casoRealAnonimizado) {
          */
         function libertarInterfaceDemonstracao() {
             window.UNIFEDSystem.processing = false;
-            window._isSyncing = false;
+            // ── AUDITORIA-3 / P4: escrita directa de window._isSyncing REMOVIDA ───
+            // ANTERIOR: forçava window._isSyncing = false aqui como "rede de
+            // segurança" contra loading infinito. Risco real: esta função corre
+            // no fecho de activateDemoMode(), que pode ainda estar em janela de
+            // paralelismo com uma chamada de _syncPureDashboard accionada
+            // internamente (ex. dentro do ciclo TOP3/Merkle), quebrando a
+            // exclusão mútua do lock prematuramente.
+            // CORRIGIDO: confia exclusivamente no try/finally de _syncPureDashboard
+            // (linha ~9951) para libertar o lock — que está sempre garantido de
+            // correr, mesmo em caso de erro, dado o try/finally já confirmado.
             window._demoAuditInProgress = false;
             const overlay = document.getElementById('loadingOverlay');
             if (overlay) overlay.style.display = 'none';
@@ -6589,7 +6636,7 @@ if (!UNIFEDSystem.demoMode && !UNIFEDSystem.casoRealAnonimizado) {
         console.error('Erro na consultoria técnica:', error);
         logAudit(`❌ ERRO CRÍTICO NA CONSULTORIA TÉCNICA: ${error.message}`, 'error');
         ForensicLogger.addEntry('AUDIT_ERROR', { error: error.message });
-        showToast('Erro durante a execução da consultoria técnica. Verifique os ficheiros carregados.', 'error');
+        showToast((window.currentLang === 'en' ? 'Error during analysis execution. Check the uploaded files.' : 'Erro durante a execução da consultoria técnica. Verifique os ficheiros carregados.'), 'error');
     } finally {
         if(analyzeBtn) {
             analyzeBtn.disabled = false;
@@ -6848,11 +6895,18 @@ function performForensicCrossings() {
         projecaoAnos:          7,
         sessionId:             window.getForensicSessionId()
     });
-    // Disparar evento DOM para listeners em panel.html (reaplica layout grid)
-    // e qualquer outro módulo que escute UNIFED_ANALYSIS_COMPLETE.
-    document.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', {
-        detail: { danoCalculado: cross.impactoSeteAnosMercado }
-    }));
+    // ── AUDITORIA-3 / P1 (Fase 11→12): dispatchEvent REMOVIDO deste ponto ──────
+    // ANTERIOR: performForensicCrossings() disparava document.dispatchEvent
+    // ('UNIFED_ANALYSIS_COMPLETE') no meio do cálculo (chamado por performAudit()
+    // na linha ~6212) — ANTES do segundo dispatchEvent (window) no fecho de
+    // performAudit() (linha ~6383). Dois disparos do mesmo evento lógico, em
+    // EventTargets distintos (document vs window), sem ordem determinística
+    // entre si e sem garantia de que analysis.danoCalculado/mediaMensalReal
+    // (escritos linhas acima) já estavam visíveis a TODOS os listeners.
+    // CORRIGIDO: o cálculo (performForensicCrossings) só regista no log forense
+    // (ForensicLogger.addEntry, acima). O disparo do evento DOM é responsabili-
+    // dade exclusiva do orquestrador (performAudit/_autoGenerateTop3), num único
+    // ponto, após TODO o ciclo de análise (incluindo TOP3/Merkle) ter concluído.
     console.log('[SSoT] ✅ danoCalculado gravado: €' + cross.impactoSeteAnosMercado.toFixed(2));
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -7108,57 +7162,32 @@ function updateDashboard() {
 
     const quantumBreakdownEl = document.getElementById('quantumBreakdown');
     if (quantumBreakdownEl) {
-        const qLang = currentLang;
-        quantumBreakdownEl.innerHTML = `
-            <div class="quantum-breakdown-item">
-                <span>BTOR ${qLang === 'pt' ? '(Despesas/Comissões Extrato)' : '(Expenses/Commissions Statement)'}:</span>
-                <span>${formatCurrency(cross.btor)}</span>
-            </div>
-            <div class="quantum-breakdown-item">
-                <span>BTF ${qLang === 'pt' ? '(Faturas)' : '(Invoices)'}:</span>
-                <span>${formatCurrency(cross.btf)}</span>
-            </div>
-            <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(0,229,255,0.3); margin-top:0.3rem; padding-top:0.3rem;">
-                <span>${qLang === 'pt' ? 'DISCREPÂNCIA DESPESAS/COMISSÕES' : 'EXPENSE/COMMISSION DISCREPANCY'}:</span>
-                <span style="color:var(--warn-primary);">${formatCurrency(cross.discrepanciaCritica)} (${cross.percentagemOmissao.toFixed(2)}%)</span>
-            </div>
-            <div class="quantum-breakdown-item">
-                <span>${qLang === 'pt' ? 'Ganhos (Extrato)' : 'Earnings (Statement)'}:</span>
-                <span>${formatCurrency(totals.ganhos)}</span>
-            </div>
-            <div class="quantum-breakdown-item">
-                <span>SAF-T ${qLang === 'pt' ? 'Bruto' : 'Gross'}:</span>
-                <span>${formatCurrency(totals.saftBruto)}</span>
-            </div>
-            <div class="quantum-breakdown-item">
-                <span>DAC7 (${UNIFEDSystem.selectedPeriodo}):</span>
-                <span>${formatCurrency(totals.dac7TotalPeriodo)}</span>
-            </div>
-            <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(245,158,11,0.3); margin-top:0.3rem; padding-top:0.3rem;">
-                <span>SAF-T vs DAC7 ${qLang === 'pt' ? 'DISCREPÂNCIA' : 'DISCREPANCY'}:</span>
-                <span style="color:var(--warn-secondary);">${formatCurrency(cross.discrepanciaSaftVsDac7)} (${cross.percentagemSaftVsDac7.toFixed(2)}%)</span>
-            </div>
-            <div class="quantum-breakdown-item">
-                <span>${qLang === 'pt' ? 'Meses com dados' : 'Months with data'}:</span>
-                <span>${mesesDados}</span>
-            </div>
-            <div class="quantum-breakdown-item">
-                <span>${qLang === 'pt' ? 'Média mensal' : 'Monthly average'}:</span>
-                <span>${formatCurrency(cross.discrepanciaCritica / mesesDados)}</span>
-            </div>
-            <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(0,229,255,0.3); margin-top:0.3rem; padding-top:0.3rem;">
-                <span>${qLang === 'pt' ? 'Impacto Mensal Mercado (38k)' : 'Monthly Market Impact (38k)'}:</span>
-                <span>${formatCurrency(cross.impactoMensalMercado)}</span>
-            </div>
-            <div class="quantum-breakdown-item">
-                <span>${qLang === 'pt' ? 'Impacto Anual Mercado' : 'Annual Market Impact'}:</span>
-                <span>${formatCurrency(cross.impactoAnualMercado)}</span>
-            </div>
-            <div class="quantum-breakdown-item">
-                <span>${qLang === 'pt' ? 'IMPACTO 7 ANOS' : '7‑YEAR IMPACT'}:</span>
-                <span style="color:var(--accent-primary); font-weight:800;">${formatCurrency(cross.impactoSeteAnosMercado)}</span>
-            </div>
+        const qLang = window.currentLang || 'pt';
+        const mesesDados = UNIFEDSystem.dataMonths.size || 1;
+        const mediaBruta = cross.discrepanciaCritica / mesesDados;
+        const mediaConservadora = cross.impactoMensalMercado / 38000;
+        const is2S = (UNIFEDSystem.selectedPeriodo || 'anual') === '2s';
+        const hasAssimetria = is2S && mesesDados < 6;
+
+        let html = `
+        <div class="quantum-breakdown-item"><span>BTOR ${qLang === 'pt' ? '(Despesas/Comissões Extrato)' : '(Expenses/Commissions Statement)'}:</span><span>${window.formatForensicCurrency(cross.btor)}</span></div>
+        <div class="quantum-breakdown-item"><span>BTF ${qLang === 'pt' ? '(Faturas)' : '(Invoices)'}:</span><span>${window.formatForensicCurrency(cross.btf)}</span></div>
+        <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(0,229,255,0.3); margin-top:0.3rem; padding-top:0.3rem;"><span>${qLang === 'pt' ? 'DISCREPÂNCIA DESPESAS/COMISSÕES' : 'EXPENSE/COMMISSION DISCREPANCY'}:</span><span style="color:var(--warn-primary);">${window.formatForensicCurrency(cross.discrepanciaCritica)} (${cross.percentagemOmissao.toFixed(2)}%)</span></div>
+        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Ganhos (Extrato)' : 'Earnings (Statement)'}:</span><span>${window.formatForensicCurrency(totals.ganhos)}</span></div>
+        <div class="quantum-breakdown-item"><span>SAF-T ${qLang === 'pt' ? 'Bruto' : 'Gross'}:</span><span>${window.formatForensicCurrency(totals.saftBruto)}</span></div>
+        <div class="quantum-breakdown-item"><span>DAC7 (${UNIFEDSystem.selectedPeriodo}):</span><span>${window.formatForensicCurrency(totals.dac7TotalPeriodo)}</span></div>
+        <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(245,158,11,0.3); margin-top:0.3rem; padding-top:0.3rem;"><span>SAF-T vs DAC7 ${qLang === 'pt' ? 'DISCREPÂNCIA' : 'DISCREPANCY'}:</span><span style="color:var(--warn-secondary);">${window.formatForensicCurrency(cross.discrepanciaSaftVsDac7)} (${cross.percentagemSaftVsDac7.toFixed(2)}%)</span></div>
+        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Meses com dados' : 'Months with data'}:</span><span>${mesesDados}</span></div>
+        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Omissão média mensal (caso concreto)' : 'Average monthly omission (specific case)'}:</span><span>${window.formatForensicCurrency(mediaBruta)}</span></div>
+        <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(0,229,255,0.3); margin-top:0.3rem; padding-top:0.3rem;"><span>${qLang === 'pt' ? 'Média conservadora IC99% (por operador)' : 'Conservative IC99% average (per operator)'}:</span><span>${window.formatForensicCurrency(mediaConservadora)}</span></div>
+        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Impacto Mensal Mercado (38k)' : 'Monthly Market Impact (38k)'}:</span><span>${window.formatForensicCurrency(cross.impactoMensalMercado)}</span></div>
+        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Impacto Anual Mercado' : 'Annual Market Impact'}:</span><span>${window.formatForensicCurrency(cross.impactoAnualMercado)}</span></div>
+        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'IMPACTO 7 ANOS' : '7\u2011YEAR IMPACT'}:</span><span style="color:var(--accent-primary); font-weight:800;">${window.formatForensicCurrency(cross.impactoSeteAnosMercado)}</span></div>
         `;
+        if (hasAssimetria) {
+            html += `<div class="quantum-breakdown-item" style="border-top: 1px solid rgba(245,158,11,0.5); margin-top:0.3rem; padding-top:0.3rem; color: #f59e0b; background: rgba(245,158,11,0.05); border-radius: 4px; padding: 6px 10px;"><span>⚠️ ${qLang === 'pt' ? 'Aviso: DAC7 (2.º Semestre = 6 meses) vs Extratos/SAF-T (' + mesesDados + ' meses) — a comparação direta pode subestimar a discrepância. Considere pro-rata.' : 'Warning: DAC7 (2nd Semester = 6 months) vs Statements/SAF-T (' + mesesDados + ' months) — direct comparison may underestimate discrepancy. Consider pro-rata.'}</span></div>`;
+        }
+        quantumBreakdownEl.innerHTML = html;
     }
 
     const jurosCard = document.getElementById('jurosCard');
@@ -7584,7 +7613,7 @@ window.exportForensicPayload = function(targetMode) {
         window.UNIFED_TRIADA_EXPORT.downloadJsonData(mode, window.currentLang || 'pt');
     } else {
         console.error('[UNIFED] Erro: Motor de exportação unificado indisponível.');
-        showToast('Motor de exportação indisponível.', 'error');
+        showToast((window.currentLang === 'en' ? 'Export engine unavailable.' : 'Motor de exportação indisponível.'), 'error');
     }
 };
 window.exportDataJSON = function() { window.exportForensicPayload('analyst'); };
@@ -7674,7 +7703,7 @@ async function exportPDF() {
     console.warn('[DEPRECATED] exportPDF() está obsoleta. O motor de exportação foi delegado inteiramente à Tríade (unifed_triada_export.js).');
     
     if (typeof showToast === 'function') {
-        showToast('Utilize os botões da "Tríade Técnico-Jurídica" para gerar os pacotes documentais.', 'info');
+        showToast((window.currentLang === 'en' ? 'Use the "Legal-Technical Triad" buttons to generate the document packages.' : 'Utilize os botões da "Tríade Técnico-Jurídica" para gerar os pacotes documentais.'), 'info');
     }
     
     // Anula o throw de erro e quebra o loop
@@ -8150,6 +8179,21 @@ function logAudit(message, type = 'info') {
     const timestamp = new Date().toLocaleTimeString(locale);
     const entry = { timestamp, message, type };
     UNIFEDSystem.logs.push(entry);
+    // ── AUDITORIA-4 / P1 (Higiene de Memória) ──────────────────────────────────
+    // ANTERIOR: UNIFEDSystem.logs crescia sem limite ao longo da sessão — apenas
+    // LOG_THROTTLE reduzia a FREQUÊNCIA de novas entradas, não o tamanho total
+    // acumulado. Este array está dentro do objecto serializado por
+    // JSON.stringify(window.UNIFEDSystem) em _exportPacoteAdvogado — uma demo
+    // longa com múltiplas análises/exportações fazia o payload crescer
+    // monotonamente, agravando o jank do JSON.stringify síncrono.
+    // CORRIGIDO: teto de 100 entradas (UI/consola — não confundir com
+    // ForensicLogger.MAX_ENTRIES=5000, que é o registo forense de cadeia de
+    // custódia, com requisitos de retenção distintos). Remove as mais antigas.
+    const UNIFED_LOGS_MAX = 100;
+    while (UNIFEDSystem.logs.length > UNIFED_LOGS_MAX) {
+        UNIFEDSystem.logs.shift();
+    }
+    // ────────────────────────────────────────────────────────────────────────────
 
     const consoleOutput = document.getElementById('consoleOutput');
     if (consoleOutput) {
@@ -9191,7 +9235,7 @@ function validateScriptIntegrity() {
         'processFile', 'registerClient', 'forensicDataSynchronization'
     ];
     
-    const missing = criticalFunctions.filter(fn => typeof window[fn] !== 'function' && typeof eval(fn) !== 'function');
+    const missing = criticalFunctions.filter(fn => typeof window[fn] !== 'function');
     
     if (missing.length > 0) {
         console.error('[UNIFED] Funções críticas ausentes:', missing);
@@ -9814,6 +9858,40 @@ window._syncPureDashboard = (function() {
                 if (atfClassifyEl) { atfClassifyEl.innerText = 'DADOS INSUFICIENTES (1 mês)'; }
                 if (atfMesesEl)    { atfMesesEl.innerText = `1 mês com dados (${monthKeys[0]})`; }
             }
+            // ── BLOCO 2 (Fase 10): cálculo dinâmico de outliers > 2σ ──────────────────
+            // Usa desvio padrão amostral (n-1, coerente com o motor Z-Score IC99%)
+            // sobre as diferenças mensais absolutas (despesas - faturaPlataforma).
+            // Popula pure-atf-outliers e pure-atf-outliers-sub sem tocar nas fórmulas
+            // do motor de cálculo forense (âmbito estritamente de apresentação DOM).
+            {
+                const diffValues = monthKeys.map(m =>
+                    Math.abs((monthlyData[m].despesas || 0) - (monthlyData[m].faturaPlataforma || 0))
+                );
+                const avgDiff = diffValues.reduce((a, b) => a + b, 0) / (diffValues.length || 1);
+                const stdDevDiff = diffValues.length > 1
+                    ? Math.sqrt(diffValues.map(x => Math.pow(x - avgDiff, 2)).reduce((a, b) => a + b, 0) / (diffValues.length - 1))
+                    : 0;
+                const outlierCount = stdDevDiff > 0
+                    ? diffValues.filter(x => Math.abs(x - avgDiff) > 2 * stdDevDiff).length
+                    : 0;
+
+                const outliersEl = document.getElementById('pure-atf-outliers');
+                if (outliersEl) {
+                    outliersEl.setAttribute('data-i18n-ignore', 'true');
+                    outliersEl.textContent = `${outlierCount} outliers > 2\u03c3`;
+                    updated++;
+                }
+                const outliersSubEl = document.getElementById('pure-atf-outliers-sub');
+                if (outliersSubEl) {
+                    outliersSubEl.setAttribute('data-i18n-ignore', 'true');
+                    const isPT = window.currentLang !== 'en';
+                    outliersSubEl.textContent = outlierCount === 0
+                        ? (isPT ? 'Sem picos estatisticamente anómalos' : 'No statistically anomalous peaks')
+                        : (isPT ? `${outlierCount} ponto(s) fora do intervalo esperado` : `${outlierCount} point(s) outside expected range`);
+                    updated++;
+                }
+            }
+            // ── FIM BLOCO 2 (Fase 10) ────────────────────────────────────────────────
             // ── FIM RECTIFICAÇÃO R24-ATF ──────────────────────────────────────────────
 
             // Percentagens
@@ -10961,13 +11039,21 @@ window.executarAnaliseForense = async function() {
     executarRetificacoesFinaisUnifed();
 
     // INJEÇÃO DO NOVO ALERTA VISUAL PERSISTENTE NO DASHBOARD (aparece passados 3.5 segundos)
+    // ── A3-14: alert() bloqueante NEUTRALIZADO ──────────────────────────────────
+    // ANTERIOR: alert() JS nativo, bloqueante, disparado automaticamente 3.5s após
+    // a análise, sem qualquer interação do utilizador. Texto de depuração interno
+    // ("HEURÍSTICA FORENSE NIFAF") exposto. Numa demonstração ao vivo perante os
+    // advogados, este alerta congelaria a UI sem aviso, exigindo clique manual em
+    // 'OK' para desbloquear — incompatível com apresentação fluida.
+    // CORRIGIDO: substituído por log de consola bilingue (informação preservada
+    // para auditoria/depuração, sem bloquear a interface).
     window.setTimeout(() => {
-        alert("⚠ [ALERTA VISUAL CRÍTICO - HEURÍSTICA FORENSE NIFAF]\n\n" +
-              "Aviso de Desconformidade Estrutural das Plataformas Digitais:\n" +
-              "• Nível de Omissão Principal Detetado: 89.04%\n" +
-              "• Nível de Omissão Residual Detetado: 5.75%\n\n" +
-              "O botão acústico de topo foi desativado por segurança. Este diagnóstico visual permanecerá fixo no ecrã até que clique em 'OK'.");
+        const _isEN = window.currentLang === 'en';
+        console.warn(_isEN
+            ? '[STRUCTURAL NON-COMPLIANCE ALERT] Primary omission level detected: 89.04% | Residual omission level detected: 5.75%'
+            : '[ALERTA DE DESCONFORMIDADE ESTRUTURAL] Nível de Omissão Principal Detetado: 89.04% | Nível de Omissão Residual Detetado: 5.75%');
     }, 3500); // Exibido exatamente 3.5 segundos após a conclusão do processamento
+    // ── FIM A3-14 ────────────────────────────────────────────────────────────────
 };
 
 
@@ -10978,24 +11064,24 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     executarRetificacoesFinaisUnifed();
 }
 
-// RETIFICAÇÃO R-WATCH-4: Watcher reactivo sobre UNIFEDSystem.masterHash.
-// Sempre que masterHash for atribuído com um valor de 64 chars, o QR Code
-// é automaticamente regenerado — elimina qualquer race condition entre
-// generateMasterHash() e generateQRCode(), independentemente do caminho de execução
-// (modo DEMO, upload real, ou regeneração manual).
-// Padrão: getter/setter via Object.defineProperty — compatível com todos os browsers
-// modernos. configurable:true permite re-definição em caso de hot-reload.
+// RETIFICAÇÃO R-WATCH-4 (Fase 10 — versão blindada):
+// Setter reativo sobre UNIFEDSystem.masterHash com debounce duplo:
+// (1) generateQRCode em 0ms — micro-adiamento para DOM pronto;
+// (2) _syncPureDashboard em 50ms — garante sincronização total do painel
+// após cada atualização de hash, eliminando race conditions entre
+// generateMasterHash(), generateQRCode() e _syncPureDashboard().
+// configurable:true preserva compatibilidade com hot-reload e re-definições.
 (function installMasterHashWatcher() {
     if (!window.UNIFEDSystem) {
         console.warn('[WATCH-4] UNIFEDSystem não disponível — watcher não instalado.');
         return;
     }
     const descriptor = Object.getOwnPropertyDescriptor(window.UNIFEDSystem, 'masterHash');
-    // Não reinstalar se já for um setter (idempotência)
     if (descriptor && typeof descriptor.set === 'function') {
         console.log('[WATCH-4] Watcher já instalado — idempotência garantida.');
         return;
     }
+
     let _masterHashValue = window.UNIFEDSystem.masterHash || '';
     Object.defineProperty(window.UNIFEDSystem, 'masterHash', {
         get: function() { return _masterHashValue; },
@@ -11003,10 +11089,12 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
             const prev = _masterHashValue;
             _masterHashValue = val;
             if (val && val.length === 64 && val !== prev) {
-                console.log('[WATCH-4] masterHash atualizado (' + val.substring(0,16) + '...) — a regenerar QR Code.');
+                console.log('[WATCH-4] masterHash atualizado (' + val.substring(0,16) + '...) — a regenerar QR Code e sincronizar DOM.');
                 if (typeof generateQRCode === 'function') {
-                    // Micro-adiamento para garantir que o DOM está pronto
                     setTimeout(generateQRCode, 0);
+                }
+                if (typeof window._syncPureDashboard === 'function') {
+                    setTimeout(() => window._syncPureDashboard(window.UNIFEDSystem), 50);
                 }
             }
         },
@@ -11321,7 +11409,7 @@ console.log('[UNIFED-RETIFICACOES] \u2705 Bloco de Retifica\u00e7\u00f5es Cir\u0
 })();
 
 // ============================================================================
-// PURGA CRIPTOGRÁFICA DE ARTEFACTOS VISUAIS E SERIALIZAÇÃO DE CUSTÓDIA
+// SERIALIZAÇÃO DE CUSTÓDIA (scrubber XPath removido — ver nota AUDITORIA-3/P4)
 // ============================================================================
 window.addEventListener('UNIFED_ANALYSIS_COMPLETE', function(event) {
     try {
@@ -11329,21 +11417,16 @@ window.addEventListener('UNIFED_ANALYSIS_COMPLETE', function(event) {
         if (chain) {
             // Garante serialização estrita para os logs internos
             const serializedCustody = JSON.stringify(chain.toForensicJSON(), null, 2);
-            
-            // Varredura cirúrgica para purgar instâncias de [object Object] na UI
-            const elements = document.evaluate(
-                "//*[contains(text(), '[object Object]')]", 
-                document, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null
-            );
-            
-            let el = elements.snapshotItem(0);
-            let idx = 0;
-            while (el) {
-                if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
-                    el.textContent = el.textContent.replace('[object Object]', 'CADEIA DE CUSTÓDIA VALIDADA (CONSULTE JSON E ANEXOS PARA DETALHES)');
-                }
-                el = elements.snapshotItem(++idx);
-            }
+
+            // ── AUDITORIA-3 / P4: scrubber XPath REMOVIDO ──────────────────────
+            // ANTERIOR: document.evaluate("//*[contains(text(), '[object Object]')]")
+            // percorria TODO o DOM a cada disparo de UNIFED_ANALYSIS_COMPLETE,
+            // procurando e substituindo a string literal "[object Object]" —
+            // mitigação reactiva de um bug (banner SANDBOX) já corrigido na raiz
+            // em ITEM-B+ (toggleSandboxBanner agora usa window.getTranslation(),
+            // nunca atribui o objeto {pt,en} directamente a innerText). Manter
+            // esta travessia era overhead desnecessário sem benefício residual.
+            // ────────────────────────────────────────────────────────────────────
         }
     } catch (e) {
         console.error('[UNIFED-FORENSE] Erro na serialização da cadeia de custódia:', e);

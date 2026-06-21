@@ -699,6 +699,27 @@
                 : 0);
         // ─────────────────────────────────────────────────────────────────────
 
+        // ── AUDITORIA-4 / P2 (Garantia de Qualidade de Dados) ──────────────────
+        // ANTERIOR: se analysis.crossings estivesse ausente ou analysis.danoCalculado
+        // fosse null/undefined (sinal de que performAudit()/performForensicCrossings()
+        // nunca correu, ou falhou), getSystemMetrics() degradava silenciosamente
+        // para 0,00€/[] em todos os campos — o PDF saía "limpo", sem qualquer
+        // indicação de que a análise estava incompleta.
+        // CORRIGIDO: detecta esta condição explicitamente e expõe
+        // analysisIncomplete (bool) + analysisStatusLabel (texto bilingue), para
+        // os geradores de PDF inserirem um aviso visível (cabeçalho/rodapé),
+        // em vez de mascarar a ausência de dados com valores zerados.
+        const _crossingsAusentes = !analysis.crossings || Object.keys(analysis.crossings).length === 0;
+        const _danoCalculadoIndefinido = (analysis.danoCalculado === null || analysis.danoCalculado === undefined);
+        const analysisIncomplete = _crossingsAusentes || _danoCalculadoIndefinido;
+        const analysisStatusLabel = analysisIncomplete
+            ? { pt: 'REVISÃO INCOMPLETA · AGUARDANDO PROCESSAMENTO', en: 'INCOMPLETE REVIEW · AWAITING PROCESSING' }
+            : { pt: '', en: '' };
+        if (analysisIncomplete) {
+            console.warn('[AUDITORIA-4/P2] ⚠️ Análise incompleta detectada no momento da exportação — crossingsAusentes:', _crossingsAusentes, '| danoCalculadoIndefinido:', _danoCalculadoIndefinido);
+        }
+        // ────────────────────────────────────────────────────────────────────────
+
         let custodyLogs = analysis.custodyLog || [];
         if (window.ForensicLogger && typeof window.ForensicLogger.getLogs === 'function') {
             const rawLogs = window.ForensicLogger.getLogs();
@@ -739,6 +760,8 @@
             ivaFalta6:       (analysis.crossings && analysis.crossings.ivaFalta6)  || analysis.ivaFalta6    || 0,
             merkleRoot:      analysis.merkleRoot || (window.UNIFED_FORENSIC_SYSTEM && window.UNIFED_FORENSIC_SYSTEM.chainOfCustody && window.UNIFED_FORENSIC_SYSTEM.chainOfCustody.masterHash) || 'N/A',
             verdict:         analysis.verdict         || 'INDETERMINADO',
+            analysisIncomplete: analysisIncomplete,
+            analysisStatusLabel: analysisStatusLabel,
             transactionRows: (function() {
                 if (analysis.transactionRows && analysis.transactionRows.length > 0) return analysis.transactionRows;
                 const _sys = window.UNIFEDSystem || {};
@@ -837,7 +860,7 @@
         <p><strong>${isPT ? 'Data' : 'Date'}:</strong> ${new Date().toLocaleString(lang)}</p>
         <hr>
         <h2>${isPT ? 'Dados da Análise' : 'Analysis Data'}</h2>
-        <pre>${JSON.stringify(metrics, null, 2)}</pre>
+        <pre>${escapeHtml(JSON.stringify(metrics, null, 2))}</pre>
         ${safeguardNote}
         <div class="footer-note">
             ${isPT ? 'Este é um documento de fallback gerado porque o gerador de PDF não estava disponível. Pode guardar esta página como PDF através do menu "Imprimir" do navegador.' : 'This is a fallback document generated because the PDF generator was unavailable. You can save this page as PDF via the browser\'s "Print" menu.'}
@@ -920,17 +943,17 @@
         const isPT = lang === 'pt';
         const content = [];
         
-        content.push({ text: 'UNIFED - PROBATUM | UNIDADE DE CONSULTORIA TÉCNICA FISCAL E DIGITAL', style: 'headerTitle', alignment: 'center', margin: [0, 0, 0, 4] });
-        content.push({ text: 'ESTRUTURA DE PARECER TÉCNICO FORENSE MOD. 03-B (NORMA ISO/IEC 27037)', style: 'normal', alignment: 'center', bold: true, color: '#64748b', margin: [0, 0, 0, 15] });
+        content.push({ text: isPT ? 'UNIFED - PROBATUM | UNIDADE DE CONSULTORIA TÉCNICA FISCAL E DIGITAL' : 'UNIFED - PROBATUM | TAX & DIGITAL TECHNICAL CONSULTANCY UNIT', style: 'headerTitle', alignment: 'center', margin: [0, 0, 0, 4] });
+        content.push({ text: isPT ? 'ESTRUTURA DE PARECER TÉCNICO FORENSE MOD. 03-B (NORMA ISO/IEC 27037)' : 'FORENSIC TECHNICAL OPINION STRUCTURE MOD. 03-B (ISO/IEC 27037 STANDARD)', style: 'normal', alignment: 'center', bold: true, color: '#64748b', margin: [0, 0, 0, 15] });
         
         content.push({
             style: 'tableMeta',
             table: {
                 widths: ['30%', '70%'],
                 body: [
-                    [{ text: 'PROCESSO N.º', bold: true, color: '#1e3a8a' }, { text: `UNIFED-${(m.session || 'SESSAO').toUpperCase()}`, bold: true }],
-                    [{ text: 'DATA DE EMISSÃO', bold: true, color: '#1e3a8a' }, { text: new Date().toLocaleString(lang) }],
-                    [{ text: 'ÂMBITO JURÍDICO', bold: true, color: '#1e3a8a' }, { text: 'RECONSTITUIÇÃO DA VERDADE MATERIAL DIGITAL (ART. 125.º CPP)' }]
+                    [{ text: isPT ? 'PROCESSO N.º' : 'CASE NO.', bold: true, color: '#1e3a8a' }, { text: `UNIFED-${(m.session || 'SESSAO').toUpperCase()}`, bold: true }],
+                    [{ text: isPT ? 'DATA DE EMISSÃO' : 'ISSUE DATE', bold: true, color: '#1e3a8a' }, { text: new Date().toLocaleString(lang) }],
+                    [{ text: isPT ? 'ÂMBITO JURÍDICO' : 'LEGAL SCOPE', bold: true, color: '#1e3a8a' }, { text: isPT ? 'RECONSTITUIÇÃO DA VERDADE MATERIAL DIGITAL (ART. 125.º CPP)' : 'RECONSTRUCTION OF DIGITAL MATERIAL TRUTH (ART. 125 PT CRIMINAL PROCEDURE CODE)' }]
                 ]
             },
             margin: [0, 0, 0, 15]
@@ -942,14 +965,16 @@
         });
         content.push({
             columns: [
-                { text: '   STATUS: CONFIDENCIAL  |  CADEIA DE CUSTÓDIA FORENSE: ATIVA  |  EVIDÊNCIA DE MATERIALIDADE', color: '#b91c1c', bold: true, fontSize: 8 }
+                { text: isPT ? '   STATUS: CONFIDENCIAL  |  CADEIA DE CUSTÓDIA FORENSE: ATIVA  |  EVIDÊNCIA DE MATERIALIDADE' : '   STATUS: CONFIDENTIAL  |  FORENSIC CHAIN OF CUSTODY: ACTIVE  |  MATERIALITY EVIDENCE', color: '#b91c1c', bold: true, fontSize: 8 }
             ],
             margin: [0, 6, 0, 15]
         });
 
         content.push({ text: isPT ? '1. NOTA METODOLÓGICA FORENSE - MÉTODO DATA PROXY: FLEET EXTRACT' : '1. FORENSIC METHODOLOGY NOTE - DATA PROXY: FLEET EXTRACT', style: 'h1', margin: [0, 10, 0, 5] });
         content.push({ 
-            text: 'Dada a latência administrativa na disponibilização do ficheiro SAF-T (.xml) pelas plataformas, a presente consultoria técnica utiliza o método de Data Proxy: Fleet Extract. Esta metodologia consiste na extração de dados brutos primários diretamente do portal de gestão (Fleet). O ficheiro \'Ganhos da Empresa\' (Fleet/Ledger) é aqui tratado como o Livro-Razão (Ledger) de suporte, possuindo valor probatório material por constituir a fonte primária dos registos que integram o reporte fiscal final. A integridade desta extração é blindada através da assinatura digital SHA-256 (Hash).', 
+            text: isPT
+                ? 'Dada a latência administrativa na disponibilização do ficheiro SAF-T (.xml) pelas plataformas, a presente consultoria técnica utiliza o método de Data Proxy: Fleet Extract. Esta metodologia consiste na extração de dados brutos primários diretamente do portal de gestão (Fleet). O ficheiro \'Ganhos da Empresa\' (Fleet/Ledger) é aqui tratado como o Livro-Razão (Ledger) de suporte, possuindo valor probatório material por constituir a fonte primária dos registos que integram o reporte fiscal final. A integridade desta extração é blindada através da assinatura digital SHA-256 (Hash).'
+                : 'Given the administrative latency in obtaining the SAF-T (.xml) file from the platforms, this technical consultancy uses the Data Proxy: Fleet Extract method. This methodology consists of extracting raw primary data directly from the management portal (Fleet). The \'Company Earnings\' file (Fleet/Ledger) is treated here as the supporting Ledger, holding material evidentiary value as the primary source of the records that feed into the final tax reporting. The integrity of this extraction is secured through SHA-256 digital signature (Hash).',
             style: 'normal', 
             margin: [0, 2, 0, 12] 
         });
@@ -961,8 +986,8 @@
             table: {
                 widths: ['25%', '25%', '25%', '25%'],
                 body: [
-                    [{ text: 'Sujeito Passivo:', bold: true, color: '#2c3e66' }, { text: m.companyName }, { text: 'NIF Alvo:', bold: true, color: '#2c3e66' }, { text: m.nif }],
-                    [{ text: 'Plataforma Operativa:', bold: true, color: '#2c3e66' }, { text: 'Plataforma Digital Operacional' }, { text: 'Período Fiscal:', bold: true, color: '#2c3e66' }, { text: m.period }]
+                    [{ text: isPT ? 'Sujeito Passivo:' : 'Taxable Person:', bold: true, color: '#2c3e66' }, { text: m.companyName }, { text: isPT ? 'NIF Alvo:' : 'Target Tax ID:', bold: true, color: '#2c3e66' }, { text: m.nif }],
+                    [{ text: isPT ? 'Plataforma Operativa:' : 'Operating Platform:', bold: true, color: '#2c3e66' }, { text: isPT ? 'Plataforma Digital Operacional' : 'Digital Operating Platform' }, { text: isPT ? 'Período Fiscal:' : 'Tax Period:', bold: true, color: '#2c3e66' }, { text: m.period }]
                 ]
             }
         };
@@ -987,17 +1012,17 @@
                 widths: ['65%', '35%'],
                 body: [
                     [{ text: isPT ? 'Métrica de Auditoria Digital' : 'Digital Audit Metric', style: 'tableHeader' }, { text: isPT ? 'Valor Apurado (€)' : 'Calculated Value (€)', style: 'tableHeader' }],
-                    ['SAF-T Bruto (Reporte Comercial AT)', formatForensicCurrency(m.saftGross)],
-                    ['DAC7 Reportado (Comunicação da Plataforma Internacional)', formatForensicCurrency(m.dac7Total)],
-                    [{ text: 'Discrepância Absoluta SAF-T vs DAC7', bold: true }, { text: formatForensicCurrency(m.saftGross - m.dac7Total), bold: true, color: '#ef4444' }],
-                    ['Rácio de Desvio SAF-T / DAC7 (%)', `${m.discrepancyPct.toFixed(2)}%`],
-                    ['BTOR (Livro-Razão Operacional Extraído - Base Real)', formatForensicCurrency(m.btorLedger)],
-                    ['BTF (Faturação Emitida e Consolidada)', formatForensicCurrency(m.btfInvoice)],
-                    [{ text: 'Omissão de Faturação Detetada (Verdade Material)', bold: true }, { text: formatForensicCurrency(m.btorLedger - m.btfInvoice), bold: true, color: '#ef4444' }],
-                    ['Taxa de Omissão Face ao Volume Real (%)', `${m.omissionPct.toFixed(2)}%`],
-                    ['IVA em Falta Estimado (Taxa Normal 23%)', formatForensicCurrency(m.ivaFalta23)],
-                    ['IVA em Falta Estimado (Taxa Reduzida 6%)', formatForensicCurrency(m.ivaFalta6)],
-                    [{ text: 'Impacto Acumulado Estimado (Projeção de Mercado 7 Anos)', bold: true }, { text: formatForensicCurrency(m.impactoSeteAnosMercado), bold: true }]
+                    [isPT ? 'SAF-T Bruto (Reporte Comercial AT)' : 'SAF-T Gross (Tax Authority Commercial Report)', formatForensicCurrency(m.saftGross)],
+                    [isPT ? 'DAC7 Reportado (Comunicação da Plataforma Internacional)' : 'DAC7 Reported (International Platform Disclosure)', formatForensicCurrency(m.dac7Total)],
+                    [{ text: isPT ? 'Discrepância Absoluta SAF-T vs DAC7' : 'Absolute SAF-T vs DAC7 Discrepancy', bold: true }, { text: formatForensicCurrency(m.saftGross - m.dac7Total), bold: true, color: '#ef4444' }],
+                    [isPT ? 'Rácio de Desvio SAF-T / DAC7 (%)' : 'SAF-T / DAC7 Deviation Ratio (%)', `${m.discrepancyPct.toFixed(2)}%`],
+                    [isPT ? 'BTOR (Livro-Razão Operacional Extraído - Base Real)' : 'BTOR (Extracted Operating Ledger - Real Base)', formatForensicCurrency(m.btorLedger)],
+                    [isPT ? 'BTF (Faturação Emitida e Consolidada)' : 'BTF (Issued and Consolidated Invoicing)', formatForensicCurrency(m.btfInvoice)],
+                    [{ text: isPT ? 'Omissão de Faturação Detetada (Verdade Material)' : 'Detected Under-Invoicing (Material Truth)', bold: true }, { text: formatForensicCurrency(m.btorLedger - m.btfInvoice), bold: true, color: '#ef4444' }],
+                    [isPT ? 'Taxa de Omissão Face ao Volume Real (%)' : 'Omission Rate Relative to Real Volume (%)', `${m.omissionPct.toFixed(2)}%`],
+                    [isPT ? 'IVA em Falta Estimado (Taxa Normal 23%)' : 'Estimated Missing VAT (Standard Rate 23%)', formatForensicCurrency(m.ivaFalta23)],
+                    [isPT ? 'IVA em Falta Estimado (Taxa Reduzida 6%)' : 'Estimated Missing VAT (Reduced Rate 6%)', formatForensicCurrency(m.ivaFalta6)],
+                    [{ text: isPT ? 'Impacto Acumulado Estimado (Projeção de Mercado 7 Anos)' : 'Estimated Accumulated Impact (7-Year Market Projection)', bold: true }, { text: formatForensicCurrency(m.impactoSeteAnosMercado), bold: true }]
                 ]
             },
             margin: [0, 5, 0, 12]
@@ -1016,7 +1041,7 @@
         
         content.push({ text: isPT ? '8. INTEGRIDADE CRIPTOGRÁFICA DA PROVA (ISO 27037 / eIDAS 2.0)' : '8. EVIDENCE CRYPTOGRAPHIC INTEGRITY', style: 'h1', margin: [0, 12, 0, 5] });
         content.push({ text: `MASTER BATCH HASH (SHA-256): ${m.masterHash}`, style: 'code', margin: [0, 2, 0, 2] });
-        content.push({ text: `RAIZ DA ÁRVORE DE MERKLE (EVIDÊNCIAS): ${m.merkleRoot}`, style: 'code', margin: [0, 2, 0, 8] });
+        content.push({ text: `${isPT ? 'RAIZ DA ÁRVORE DE MERKLE (EVIDÊNCIAS)' : 'MERKLE TREE ROOT (EVIDENCE)'}: ${m.merkleRoot}`, style: 'code', margin: [0, 2, 0, 8] });
         
         if (qrCodeDataUrl) {
             content.push({ image: qrCodeDataUrl, width: 100, alignment: 'center', margin: [0, 8, 0, 4] });
@@ -1030,7 +1055,7 @@
                 table: {
                     widths: ['15%', '20%', '35%', '15%', '15%'],
                     body: [
-                        [{ text: 'ID', style: 'tableHeader' }, { text: 'Período', style: 'tableHeader' }, { text: 'Natureza do Artefacto', style: 'tableHeader' }, { text: 'BTOR (€)', style: 'tableHeader' }, { text: 'BTF (€)', style: 'tableHeader' }]
+                        [{ text: 'ID', style: 'tableHeader' }, { text: isPT ? 'Período' : 'Period', style: 'tableHeader' }, { text: isPT ? 'Natureza do Artefacto' : 'Artefact Type', style: 'tableHeader' }, { text: 'BTOR (€)', style: 'tableHeader' }, { text: 'BTF (€)', style: 'tableHeader' }]
                     ]
                 }
             };
@@ -1522,9 +1547,9 @@
             </head>
             <body>
             <h1 align="center">${isPT ? 'MINUTA DE PETIÇÃO INICIAL' : 'DRAFT PETITION'}</h1>
-            <p><strong>${isPT ? 'Requerente' : 'Claimant'}:</strong> ${m.companyName} (NIF ${m.nif})</p>
-            <p><strong>${isPT ? 'Requerida' : 'Defendant'}:</strong> ${m.platform}</p>
-            <p><strong>${isPT ? 'Período' : 'Period'}:</strong> ${m.period}</p>
+            <p><strong>${isPT ? 'Requerente' : 'Claimant'}:</strong> ${escapeHtml(m.companyName)} (NIF ${escapeHtml(m.nif)})</p>
+            <p><strong>${isPT ? 'Requerida' : 'Defendant'}:</strong> ${escapeHtml(m.platform)}</p>
+            <p><strong>${isPT ? 'Período' : 'Period'}:</strong> ${escapeHtml(m.period)}</p>
             <hr>
             <p>${isPT ? 'Os valores apurados evidenciam uma omissão de faturação de' : 'The calculated values show an under-invoicing of'} ${formatForensicCurrency(m.btorLedger - m.btfInvoice)} (${m.omissionPct.toFixed(2)}%).</p>
             <p>${isPT ? 'A discrepância SAF-T vs DAC7 atinge' : 'The SAF-T vs DAC7 discrepancy amounts to'} ${formatForensicCurrency(m.saftGross - m.dac7Total)}.</p>
@@ -1645,32 +1670,43 @@
         const impactoAnualOmissaoCustos = mediaMensalOmissao * 12;
         const ircEstimado               = impactoAnualOmissaoCustos * 0.21;
 
-        // ── CORREÇÃO AUDITORIA-2B (SSoT projeção macroeconómica) ─────────────
-        // ANTERIOR (PATCH C): impactoMensal38k/impactoAnual38k/impacto7Anos
-        // eram calculados a partir de mediaMensalOmissao (média aritmética simples),
-        // divergindo do valor Z-Score IC99% exibido no dashboard.
-        // CORRIGIDO: ler directamente de m.impactoSeteAnosMercado (já propagado
-        // pelo SSoT — analysis.danoCalculado — para o objeto 'm' via getSystemMetrics).
-        // Log de diagnóstico se divergência for detectada (não bloqueia exportação).
-        const _ssotSeteAnos   = (m.impactoSeteAnosMercado > 0) ? m.impactoSeteAnosMercado : null;
-        const _escalarSeteAnos = mediaMensalOmissao * 38000 * 12 * 7; // controlo apenas
-        if (_ssotSeteAnos !== null && Math.abs(_ssotSeteAnos - _escalarSeteAnos) > 1) {
-            console.warn('[DIAGNÓSTICO AUDITORIA-2B] Diferença SSoT vs. escalar:',
-                Math.abs(_ssotSeteAnos - _escalarSeteAnos).toFixed(2),
-                '€ — usando SSoT (Z-Score IC99%).');
-        }
-        if (_ssotSeteAnos === null) {
-            console.error('[ERR-DATA-MISSING] fiscalImpactTable: m.impactoSeteAnosMercado indisponível.');
+        // ── FASE 11 — Bloco de Projeção Macroeconómica (SSoT via m.crossings) ──
+        // ANTERIOR (AUDITORIA-2B): lia m.impactoSeteAnosMercado e dividia por 12×7
+        // para obter o impacto mensal — correto mas indireto.
+        // FASE 11: prioriza m.crossings.impactoMensalMercado (escrito directamente
+        // pelo motor Z-Score IC99% em performForensicCrossings) para garantir
+        // que o PDF usa exatamente a mesma variável que o dashboard.
+        // Fallback hierárquico: crossings → SSoT 7anos/12/7 → escalar.
+
+        // PROJEÇÃO MACROECONÓMICA (MERCADO) — Leitura SSoT do motor Z-Score
+        const impactoMensal38k = (m.crossings && m.crossings.impactoMensalMercado > 0)
+            ? m.crossings.impactoMensalMercado
+            : (mediaMensalOmissao * 38000);
+        const impactoAnual38k  = (m.crossings && m.crossings.impactoAnualMercado > 0)
+            ? m.crossings.impactoAnualMercado
+            : (impactoMensal38k * 12);
+        const impacto7Anos     = (m.impactoSeteAnosMercado > 0)
+            ? m.impactoSeteAnosMercado
+            : (impactoAnual38k * 7);
+        const mediaConservadora = impactoMensal38k / 38000;
+
+        // Log de diagnóstico (nunca bloqueia exportação)
+        if (m.crossings && m.crossings.impactoMensalMercado > 0) {
+            const _deltaCtrl = Math.abs(impactoMensal38k - mediaMensalOmissao * 38000);
+            if (_deltaCtrl > 1) {
+                console.warn('[DIAGNÓSTICO FASE 11] Diferença SSoT (Z-Score) vs. escalar:',
+                    _deltaCtrl.toFixed(2), '€/mês — usando SSoT via m.crossings.');
+            }
+        } else {
+            console.error('[ERR-DATA-MISSING] Fase 11: m.crossings.impactoMensalMercado indisponível — a usar fallback escalar.');
             if (typeof window.ForensicLogger !== 'undefined' && typeof window.ForensicLogger.addEntry === 'function') {
-                window.ForensicLogger.addEntry('ERR_DATA_MISSING', { fn: 'gerarBlobParecerTecnicoForense_fiscalImpactTable', field: 'm.impactoSeteAnosMercado' });
+                window.ForensicLogger.addEntry('ERR_DATA_MISSING', {
+                    fn: 'gerarBlobParecerTecnicoForense_macro',
+                    field: 'm.crossings.impactoMensalMercado'
+                });
             }
         }
-        const impactoMensal38k = _ssotSeteAnos !== null
-            ? (_ssotSeteAnos / 12 / 7)  // derivado do SSoT para coerência
-            : 0;
-        const impactoAnual38k  = impactoMensal38k * 12;
-        const impacto7Anos     = _ssotSeteAnos || 0;
-        // ── FIM CORREÇÃO AUDITORIA-2B ────────────────────────────────────────
+        // ── FIM FASE 11 Bloco 1 ──────────────────────────────────────────────
 
         // Datas e timestamps
         const now = new Date();
@@ -1710,8 +1746,10 @@
                 ['Contribuição IMT/AMT Omitida (5%)', formatForensicCurrency(contribuicaoIMT), ''],
                 ['Agravamento Bruto IRC (C2 ÷ Meses x 12)', formatForensicCurrency(omissaoCustos), ''],
                 ['IRC Estimado (21% sobre Agravamento Anual)', formatForensicCurrency(ircEstimado), ''],
-                ['Impacto Mensal · 38.000 condutores PT', formatForensicCurrency(impactoMensal38k), ''],
-                ['Impacto Anual · 38.000 condutores x 12 meses PT', formatForensicCurrency(impactoAnual38k), ''],
+                ['Média Mensal Omissão (Caso Concreto)', formatForensicCurrency(mediaMensalOmissao), ''],
+                ['Média Conservadora IC99% (por Operador)', formatForensicCurrency(mediaConservadora), ''],
+                ['Impacto Mensal Mercado Estimado (38k)', formatForensicCurrency(impactoMensal38k), ''],
+                ['Impacto Anual Mercado Estimado (38k)', formatForensicCurrency(impactoAnual38k), ''],
                 ['% Omissão Receita SAF-T vs DAC7', `${m.discrepancyPct.toFixed(2)}%`, ''],
                 ['% Diferencial de Base em Análise (Desp. vs Fat.)', `${percOmissaoCustos.toFixed(2)}%`, ''],
                 ['Asfixia Financeira (IVA 6% sobre Bruto)', formatForensicCurrency(asfixiaFinanceira), '']
@@ -1845,6 +1883,19 @@
                             style: 'footerWarning',
                             alignment: 'center',
                             margin: [0, 4, 0, 0]
+                        }] : []),
+                        // ── AUDITORIA-4 / P2: Aviso de Análise Incompleta (condicional) ──
+                        // Visível em TODAS as páginas se m.analysisIncomplete === true,
+                        // sinalizando explicitamente que analysis.crossings/danoCalculado
+                        // não estavam disponíveis no momento da exportação — em vez de
+                        // mascarar a ausência de dados com campos "0,00 €" silenciosos.
+                        ...(m.analysisIncomplete ? [{
+                            text: '⚠️ ' + (isPT ? m.analysisStatusLabel.pt : m.analysisStatusLabel.en),
+                            style: 'footerWarning',
+                            alignment: 'center',
+                            bold: true,
+                            color: '#b91c1c',
+                            margin: [0, 4, 0, 0]
                         }] : [])
                     ],
                     margin: [40, 0, 40, 8]
@@ -1919,14 +1970,14 @@
                         widths: ['*', 'auto'],
                         body: [[
                             {
-                                text: '🔒 Cadeia de Custódia Forense: Ativa',
+                                text: isPT ? '🔒 Cadeia de Custódia Forense: Ativa' : '🔒 Forensic Chain of Custody: Active',
                                 fontSize: 7.5,
                                 bold: true,
                                 color: '#1e3a8a',
                                 border: [false, false, false, false]
                             },
                             {
-                                text: 'CONFIDENCIAL ⚠',
+                                text: isPT ? 'CONFIDENCIAL ⚠' : 'CONFIDENTIAL ⚠',
                                 fontSize: 7.5,
                                 bold: true,
                                 color: '#b91c1c',
@@ -1941,34 +1992,43 @@
                 {
                     columns: [
                         { text: [
-                            { bold: true, text: "PROCESSO N.º : " }, (m.session || "UNIFED-SESSAO") + "\n",
-                            { bold: true, text: "DATA: " }, dataEmissao + "\n",
-                            { bold: true, text: "OBJETO: " }, "RECONSTITUIÇÃO DA VERDADE MATERIAL DIGITAL / ART. 103.º RGIT\n",
-                            { italics: true, text: "[ Nota: Este sistema não realiza contabilidade – realiza RECONSTITUIÇÃO DA VERDADE MATERIAL DIGITAL (Art. 125.º CPP . ISO/IEC 27037:2012) ]" }
+                            { bold: true, text: (isPT ? "PROCESSO N.º : " : "CASE NO.: ") }, (m.session || "UNIFED-SESSAO") + "\n",
+                            { bold: true, text: (isPT ? "DATA: " : "DATE: ") }, dataEmissao + "\n",
+                            { bold: true, text: (isPT ? "OBJETO: " : "SUBJECT: ") }, (isPT ? "RECONSTITUIÇÃO DA VERDADE MATERIAL DIGITAL / ART. 103.º RGIT\n" : "RECONSTRUCTION OF DIGITAL MATERIAL TRUTH / ART. 103 RGIT\n"),
+                            { italics: true, text: isPT ? "[ Nota: Este sistema não realiza contabilidade – realiza RECONSTITUIÇÃO DA VERDADE MATERIAL DIGITAL (Art. 125.º CPP . ISO/IEC 27037:2012) ]" : "[ Note: This system does not perform accounting – it performs RECONSTRUCTION OF DIGITAL MATERIAL TRUTH (Art. 125 PT Criminal Procedure Code . ISO/IEC 27037:2012) ]" }
                         ], style: 'normal', width: '*' }
                     ],
                     margin: [0, 0, 0, 15]
                 },
 
                 // ========== 2. NOTA METODOLÓGICA FORENSE ==========
-                { text: "NOTA METODOLÓGICA FORENSE — MÉTODO: DATA PROXY: FLEET EXTRACT:", style: 'h2' },
-                { text: "Dada a latência administrativa na disponibilização do ficheiro SAF-T (.xml) pelas plataformas, a presente consultoria técnica utiliza o método de Data Proxy: Fleet Extract. Esta metodologia consiste na extração de dados brutos primários diretamente do portal de gestão (Fleet). O ficheiro 'Ganhos da Empresa' (Fleet/Ledger) é aqui tratado como o Livro-Razão (Ledger) de suporte, possuindo valor probatório material por constituir a fonte primária dos registos que integram o reporte fiscal final. A integridade desta extração é blindada através da assinatura digital SHA-256 (Hash).", style: 'normal', margin: [0, 0, 0, 10] },
+                { text: isPT ? "NOTA METODOLÓGICA FORENSE — MÉTODO: DATA PROXY: FLEET EXTRACT:" : "FORENSIC METHODOLOGY NOTE — METHOD: DATA PROXY: FLEET EXTRACT:", style: 'h2' },
+                { text: isPT
+                    ? "Dada a latência administrativa na disponibilização do ficheiro SAF-T (.xml) pelas plataformas, a presente consultoria técnica utiliza o método de Data Proxy: Fleet Extract. Esta metodologia consiste na extração de dados brutos primários diretamente do portal de gestão (Fleet). O ficheiro 'Ganhos da Empresa' (Fleet/Ledger) é aqui tratado como o Livro-Razão (Ledger) de suporte, possuindo valor probatório material por constituir a fonte primária dos registos que integram o reporte fiscal final. A integridade desta extração é blindada através da assinatura digital SHA-256 (Hash)."
+                    : "Given the administrative latency in obtaining the SAF-T (.xml) file from the platforms, this technical consultancy uses the Data Proxy: Fleet Extract method. This methodology consists of extracting raw primary data directly from the management portal (Fleet). The 'Company Earnings' file (Fleet/Ledger) is treated here as the supporting Ledger, holding material evidentiary value as the primary source of the records that feed into the final tax reporting. The integrity of this extraction is secured through SHA-256 digital signature (Hash).",
+                    style: 'normal', margin: [0, 0, 0, 10] },
 
                 // ========== 3. FUNDAMENTAÇÃO DA PROVA MATERIAL ==========
-                { text: "FUNDAMENTAÇÃO DA PROVA MATERIAL:", style: 'h2' },
-                { text: "Para efeitos de prova legal de rendimentos reais, consideram-se os ficheiros operacionais que contêm o rasto digital de centenas de viagens efetivamente realizadas. Este conteúdo reflete a atividade económica real do operador, sendo por isso elevado à categoria de Documento de Suporte (Ledger). Esta metodologia permite detetar e corrigir as discrepâncias omissas nos ficheiros de reporte simplificado, assegurando uma reconstrução financeira rigorosa e auditável em sede judicial, em conformidade com o Decreto-Lei n.º 28/2019 e os princípios de cadeia de custódia previstos no Art. 125.º do CPP.", style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "FUNDAMENTAÇÃO DA PROVA MATERIAL:" : "BASIS OF MATERIAL EVIDENCE:", style: 'h2' },
+                { text: isPT
+                    ? "Para efeitos de prova legal de rendimentos reais, consideram-se os ficheiros operacionais que contêm o rasto digital de centenas de viagens efetivamente realizadas. Este conteúdo reflete a atividade económica real do operador, sendo por isso elevado à categoria de Documento de Suporte (Ledger). Esta metodologia permite detetar e corrigir as discrepâncias omissas nos ficheiros de reporte simplificado, assegurando uma reconstrução financeira rigorosa e auditável em sede judicial, em conformidade com o Decreto-Lei n.º 28/2019 e os princípios de cadeia de custódia previstos no Art. 125.º do CPP."
+                    : "For the purposes of legal proof of actual income, the operational files containing the digital trail of hundreds of trips actually completed are considered. This content reflects the operator's real economic activity, and is therefore elevated to the category of Supporting Document (Ledger). This methodology allows omitted discrepancies in simplified reporting files to be detected and corrected, ensuring a rigorous and auditable financial reconstruction for judicial purposes, in compliance with Decree-Law No. 28/2019 and the chain-of-custody principles set out in Art. 125 of the PT Criminal Procedure Code.",
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 4. PROTOCOLO DE CADEIA DE CUSTÓDIA ==========
-                { text: "PROTOCOLO DE CADEIA DE CUSTÓDIA", style: 'h2' },
-                { text: "O sistema UNIFED - PROBATUM assegura a inviolabilidade dos dados através de funções criptográficas SHA-256. As seguintes evidências foram processadas e incorporadas na análise, garantindo a rastreabilidade total da prova:", style: 'normal', margin: [0, 0, 0, 8] },
+                { text: isPT ? "PROTOCOLO DE CADEIA DE CUSTÓDIA" : "CHAIN OF CUSTODY PROTOCOL", style: 'h2' },
+                { text: isPT
+                    ? "O sistema UNIFED - PROBATUM assegura a inviolabilidade dos dados através de funções criptográficas SHA-256. As seguintes evidências foram processadas e incorporadas na análise, garantindo a rastreabilidade total da prova:"
+                    : "The UNIFED - PROBATUM system ensures data inviolability through SHA-256 cryptographic functions. The following evidence was processed and incorporated into the analysis, ensuring full traceability of the evidence:",
+                    style: 'normal', margin: [0, 0, 0, 8] },
                 {
                     table: {
                         widths: ['auto', '*'],
                         headerRows: 1,
                         body: [
                             [
-                                { text: 'Ficheiro', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'center' },
-                                { text: 'Hash SHA-256 (parcial)', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'center' }
+                                { text: isPT ? 'Ficheiro' : 'File', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'center' },
+                                { text: isPT ? 'Hash SHA-256 (parcial)' : 'SHA-256 Hash (partial)', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'center' }
                             ],
                             ...(evidenceItems
                                 ? evidenceItems.split('\n').filter(l => l.trim()).map((line, i) => {
@@ -1978,7 +2038,7 @@
                                         { text: parts[1] ? parts[1] + '...' : '—', fontSize: 7.5, style: 'code', fillColor: i % 2 === 0 ? '#f8faff' : '#ffffff' }
                                     ];
                                 })
-                                : [[{ text: 'Nenhuma evidência carregada.', colSpan: 2, alignment: 'center', fontSize: 8 }, {}]]
+                                : [[{ text: isPT ? 'Nenhuma evidência carregada.' : 'No evidence uploaded.', colSpan: 2, alignment: 'center', fontSize: 8 }, {}]]
                             )
                         ]
                     },
@@ -1992,12 +2052,15 @@
                 },
 
                 // ========== 5. INVIOLABILIDADE DO ALGORITMO ==========
-                { text: "INVIOLABILIDADE DO ALGORITMO:", style: 'h2' },
-                { text: "Os cálculos de triangulação financeira (BTOR vs BTF) e os vereditos de risco são gerados por motor forense imutável, com base exclusiva nos dados extraídos das evidências carregadas.", style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "INVIOLABILIDADE DO ALGORITMO:" : "ALGORITHM INVIOLABILITY:", style: 'h2' },
+                { text: isPT
+                    ? "Os cálculos de triangulação financeira (BTOR vs BTF) e os vereditos de risco são gerados por motor forense imutável, com base exclusiva nos dados extraídos das evidências carregadas."
+                    : "Financial triangulation calculations (BTOR vs BTF) and risk verdicts are generated by an immutable forensic engine, based exclusively on data extracted from the uploaded evidence.",
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 6. METADADOS DA CONSULTORIA TÉCNICA ==========
-                { text: "METADADOS DA CONSULTORIA TÉCNICA", style: 'h2' },
-                { text: `Nome / Name: ${m.companyName}\nNIF / Tax ID: ${m.nif}\nPlataforma Digital / Digital Platform: ${m.platform}\nMorada / Address: A verificar em documentação complementar\nNIF Plataforma / Platform Tax ID: A VERIFICAR\nAno Fiscal: 2024\nPeríodo: 2s\nUnix Timestamp: ${unixTimestamp}`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "METADADOS DA CONSULTORIA TÉCNICA" : "TECHNICAL CONSULTANCY METADATA", style: 'h2' },
+                { text: `Nome / Name: ${m.companyName}\nNIF / Tax ID: ${m.nif}\nPlataforma Digital / Digital Platform: ${m.platform}\nMorada / Address: ${isPT ? 'A verificar em documentação complementar' : 'To be verified in supplementary documentation'}\nNIF Plataforma / Platform Tax ID: ${isPT ? 'A VERIFICAR' : 'TO BE VERIFIED'}\nAno Fiscal / Tax Year: 2024\nPeríodo / Period: 2s\nUnix Timestamp: ${unixTimestamp}`, style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 7. ANÁLISE FINANCEIRA CRUZADA ==========
                 { text: "2. ANÁLISE FINANCEIRA CRUZADA / CROSS-FINANCIAL ANALYSIS", style: 'h2' },
@@ -2008,9 +2071,9 @@
                         dontBreakRows: true,
                         body: [
                             [
-                                { text: 'Descrição / Description', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8.5, alignment: 'left' },
-                                { text: 'Valor', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8.5, alignment: 'right' },
-                                { text: 'Fonte', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8.5, alignment: 'center' }
+                                { text: isPT ? 'Descrição / Description' : 'Description', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8.5, alignment: 'left' },
+                                { text: isPT ? 'Valor' : 'Value', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8.5, alignment: 'right' },
+                                { text: isPT ? 'Fonte' : 'Source', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8.5, alignment: 'center' }
                             ],
                             ...(crossAnalysisTable && crossAnalysisTable.body
                                 ? crossAnalysisTable.body.slice(1).map((row, i) => row.map(cell => ({
@@ -2021,7 +2084,7 @@
                                     fillColor: i % 2 === 0 ? '#f8faff' : '#ffffff',
                                     alignment: typeof cell === 'object' && cell.alignment ? cell.alignment : 'left'
                                   })))
-                                : [[{ text: 'Dados indisponíveis', colSpan: 3, alignment: 'center', fontSize: 8 }, {}, {}]]
+                                : [[{ text: isPT ? 'Dados indisponíveis' : 'Data unavailable', colSpan: 3, alignment: 'center', fontSize: 8 }, {}, {}]]
                             )
                         ]
                     },
@@ -2033,11 +2096,17 @@
                     },
                     margin: [0, 0, 0, 10]
                 },
-                { text: `[I] Percentagem Omissão Custos (Retenção vs Fatura): ${percOmissaoCustos.toFixed(2)}%\nNota Técnico-Jurídica: ${percOmissaoCustos.toFixed(2)}% de omissão é estatisticamente impossível de ser erro administrativo.\nOmissão de Receita (Bruto vs DAC7): ${formatForensicCurrency(omissaoReceita)}\nOmissão de Custos (Retenção vs Fatura): ${formatForensicCurrency(omissaoCustos)}`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT
+                    ? `[I] Percentagem Omissão Custos (Retenção vs Fatura): ${percOmissaoCustos.toFixed(2)}%\nNota Técnico-Jurídica: ${percOmissaoCustos.toFixed(2)}% de omissão é estatisticamente impossível de ser erro administrativo.\nOmissão de Receita (Bruto vs DAC7): ${formatForensicCurrency(omissaoReceita)}\nOmissão de Custos (Retenção vs Fatura): ${formatForensicCurrency(omissaoCustos)}`
+                    : `[I] Expense Omission Percentage (Retention vs Invoice): ${percOmissaoCustos.toFixed(2)}%\nTechnical-Legal Note: an omission of ${percOmissaoCustos.toFixed(2)}% is statistically impossible to be an administrative error.\nRevenue Omission (Gross vs DAC7): ${formatForensicCurrency(omissaoReceita)}\nExpense Omission (Retention vs Invoice): ${formatForensicCurrency(omissaoCustos)}`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 8. VEREDICTO DE RISCO ==========
                 { text: "3. VEREDICTO DE RISCO / RISK VERDICT (RGIT - Art. 103.º)", style: 'h2' },
-                { text: `[I] RISCO CRÍTICO\nExpense Omission / Omissão Custos: ${percOmissaoCustos.toFixed(2)}% | Gross Earnings: ${formatForensicCurrency(m.ganhos)}\nRevenue Gap (DAC7): ${formatForensicCurrency(omissaoReceita)} (${m.discrepancyPct.toFixed(2)}%)\n\nIndícios de desconformidade fiscal significativa.`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT
+                    ? `[I] RISCO CRÍTICO\nExpense Omission / Omissão Custos: ${percOmissaoCustos.toFixed(2)}% | Gross Earnings: ${formatForensicCurrency(m.ganhos)}\nRevenue Gap (DAC7): ${formatForensicCurrency(omissaoReceita)} (${m.discrepancyPct.toFixed(2)}%)\n\nIndícios de desconformidade fiscal significativa.`
+                    : `[I] CRITICAL RISK\nExpense Omission: ${percOmissaoCustos.toFixed(2)}% | Gross Earnings: ${formatForensicCurrency(m.ganhos)}\nRevenue Gap (DAC7): ${formatForensicCurrency(omissaoReceita)} (${m.discrepancyPct.toFixed(2)}%)\n\nIndications of significant tax non-compliance.`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 9. PROVA RAINHA — TABELA 5 COLUNAS (FALHA 6 — R24) ==========
                 { text: isPT ? '4. EVIDÊNCIA DE MATERIALIDADE — PROVAS RAINHA' : '4. MATERIALITY EVIDENCE — QUEEN\u2019S PROOF', style: 'h2' },
@@ -2108,8 +2177,8 @@
                 },
 
                 // ========== 10. ENQUADRAMENTO LEGAL ==========
-                { text: "5. ENQUADRAMENTO LEGAL", style: 'h2' },
-                { text: `Artigo 2.º, n.º 1, alínea i) do Código do IVA: Regime de autoliquidação aplicável a serviços prestados por sujeitos passivos não residentes em território português.
+                { text: isPT ? "5. ENQUADRAMENTO LEGAL" : "5. LEGAL FRAMEWORK", style: 'h2' },
+                { text: isPT ? `Artigo 2.º, n.º 1, alínea i) do Código do IVA: Regime de autoliquidação aplicável a serviços prestados por sujeitos passivos não residentes em território português.
 • IVA Omitido: 23% sobre despesas reais vs faturadas
 • IVA Omitido: 6% sobre serviços de transporte
 • Base Tributável: Diferença detetada na matriz (BTOR vs BTF)
@@ -2124,31 +2193,64 @@ ADMISSIBILIDADE DA PROVA DIGITAL:
 • Art. 125.º CPP — São admissíveis como meios de prova todos os meios não proibidos por lei. Esta prova digital material foi produzida com metodologia forense certificada e cadeia de custódia documentada, sendo plenamente admissível perante as Instâncias Judiciais Competentes.
 • Art. 32.º CRP — Garantias de Defesa: o processo penal assegura todas as garantias de defesa, incluindo o recurso à prova técnica técnico-jurídica para contraditório fundamentado.
 • Art. 103.º RGIT — Fraude Fiscal: omissão de proveitos e retenção indevida de IVA.
-• Art. 104.º RGIT — Fraude Fiscal Qualificada: quando a omissão excede os limiares legais.`, style: 'normal', margin: [0, 0, 0, 15] },
+• Art. 104.º RGIT — Fraude Fiscal Qualificada: quando a omissão excede os limiares legais.` : `Article 2(1)(i) of the Portuguese VAT Code: Reverse-charge regime applicable to services provided by non-resident taxable persons in Portuguese territory.
+• VAT Omitted: 23% on actual vs invoiced expenses
+• VAT Omitted: 6% on transport services
+• Tax Base: Difference detected in the matrix (BTOR vs BTF)
+• Regularization Deadline: 30 days after detection
+• Applicable Penalties: Article 108 of the VAT Code
+
+Article 108 of the VAT Code - Infractions: It is an infraction to fail to settle the tax due, as well as to settle it below the legally required amount.
+
+Decree-Law No. 28/2019: Integrity of data processing and validity of electronic documents as primary records.
+
+ADMISSIBILITY OF DIGITAL EVIDENCE:
+• Art. 125 PT Criminal Procedure Code — All means not prohibited by law are admissible as evidence. This material digital evidence was produced using certified forensic methodology with documented chain of custody, making it fully admissible before the Competent Judicial Bodies.
+• Art. 32 PT Constitution — Defense Guarantees: criminal proceedings ensure all defense guarantees, including recourse to technical evidence for substantiated cross-examination.
+• Art. 103 RGIT — Tax Fraud: omission of proceeds and undue retention of VAT.
+• Art. 104 RGIT — Qualified Tax Fraud: when the omission exceeds the legal thresholds.`, style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 11. METODOLOGIA TÉCNICO-JURÍDICA BTOR ==========
-                { text: "6. METODOLOGIA TÉCNICO-JURÍDICA BTOR", style: 'h2' },
-                { text: "BTOR (Bank Transactions Over Reality): Análise comparativa entre despesas reais (extratos) e documentação fiscal declarada (faturas).\n• Mapeamento posicional de dados SAF-T/Relatório (colunas 14,15,16)\n• Extração precisa da tabela \"Ganhos líquidos\" do extrato\n• Cálculo de duas discrepâncias: despesas e SAF-T/Relatório vs DAC7\n• Geração de prova técnica auditável com hashes SHA-256", style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "6. METODOLOGIA TÉCNICO-JURÍDICA BTOR" : "6. BTOR TECHNICAL-LEGAL METHODOLOGY", style: 'h2' },
+                { text: isPT
+                    ? "BTOR (Bank Transactions Over Reality): Análise comparativa entre despesas reais (extratos) e documentação fiscal declarada (faturas).\n• Mapeamento posicional de dados SAF-T/Relatório (colunas 14,15,16)\n• Extração precisa da tabela \"Ganhos líquidos\" do extrato\n• Cálculo de duas discrepâncias: despesas e SAF-T/Relatório vs DAC7\n• Geração de prova técnica auditável com hashes SHA-256"
+                    : "BTOR (Bank Transactions Over Reality): Comparative analysis between actual expenses (statements) and declared tax documentation (invoices).\n• Positional mapping of SAF-T/Report data (columns 14,15,16)\n• Precise extraction of the \"Net Earnings\" table from the statement\n• Calculation of two discrepancies: expenses and SAF-T/Report vs DAC7\n• Generation of auditable technical evidence with SHA-256 hashes",
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 12. DECLARAÇÃO DE INDEPENDÊNCIA ==========
-                { text: "DECLARAÇÃO DE INDEPENDÊNCIA E ESCOPO — ISRS 4400 / ART. 153.º CPP", style: 'h2' },
-                { text: "O presente estudo foi elaborado em estrita conformidade com a Norma Internacional de Serviços Relacionados ISRS 4400 (Procedimentos Acordados sobre Informação Financeira), garantindo que os procedimentos aplicados são objetivos, reprodutíveis e auditáveis por qualquer consultor técnico independente. O analista declara total independência face às partes e ausência de conflito de interesses, nos termos do Art. 467.º do CPC e Art. 153.º do CPP.\n\nESCOPO: O estudo limita-se à análise objetiva dos documentos fornecidos (extratos de plataforma, SAF-T, DAC7, faturas). As conclusões constituem estudo de viabilidade técnico-jurídica e não substituem relatório técnico-jurídica homologado por Tribunal. A sua produção assenta em metodologia BTOR (Bank Transactions Over Reality), com rastreabilidade criptográfica completa (SHA-256 + RFC 3161).", style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "DECLARAÇÃO DE INDEPENDÊNCIA E ESCOPO — ISRS 4400 / ART. 153.º CPP" : "DECLARATION OF INDEPENDENCE AND SCOPE — ISRS 4400 / ART. 153 CRIMINAL PROCEDURE CODE", style: 'h2' },
+                { text: isPT
+                    ? "O presente estudo foi elaborado em estrita conformidade com a Norma Internacional de Serviços Relacionados ISRS 4400 (Procedimentos Acordados sobre Informação Financeira), garantindo que os procedimentos aplicados são objetivos, reprodutíveis e auditáveis por qualquer consultor técnico independente. O analista declara total independência face às partes e ausência de conflito de interesses, nos termos do Art. 467.º do CPC e Art. 153.º do CPP.\n\nESCOPO: O estudo limita-se à análise objetiva dos documentos fornecidos (extratos de plataforma, SAF-T, DAC7, faturas). As conclusões constituem estudo de viabilidade técnico-jurídica e não substituem relatório técnico-jurídica homologado por Tribunal. A sua produção assenta em metodologia BTOR (Bank Transactions Over Reality), com rastreabilidade criptográfica completa (SHA-256 + RFC 3161)."
+                    : "This study was prepared in strict compliance with the International Standard on Related Services ISRS 4400 (Agreed-Upon Procedures Engagements on Financial Information), ensuring that the procedures applied are objective, reproducible and auditable by any independent technical consultant. The analyst declares full independence from the parties and the absence of any conflict of interest, under Art. 467 of the Civil Procedure Code and Art. 153 of the Criminal Procedure Code.\n\nSCOPE: This study is limited to the objective analysis of the documents provided (platform statements, SAF-T, DAC7, invoices). The conclusions constitute a technical-legal feasibility study and do not replace a technical-legal report homologated by a Court. Its production is based on the BTOR (Bank Transactions Over Reality) methodology, with full cryptographic traceability (SHA-256 + RFC 3161).",
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 13. ANÁLISE DE TIPOLOGIAS DE RISCO ==========
-                { text: "ANÁLISE DE TIPOLOGIAS DE RISCO DETETADAS — CEJ / PJ / RGIT", style: 'h2' },
-                { text: `> FRAUDE FISCAL [Art. 103.º RGIT] Omissão de proveitos e retenção indevida de IVA sobre comissões. Pena: prisão até 3 anos ou multa.\n\n> FRAUDE FISCAL QUALIFICADA [Art. 104.º RGIT] Quando a vantagem patrimonial obtida excede 15 vezes o salário mínimo nacional anual.\n\n> BRANQUEAMENTO DE CAPITAIS [Lei 83/2017 (BCFT)] Dissimulação da origem de fundos provenientes de omissão fiscal através de fluxos algorítmicos opacos.\n\n> GESTÃO DANOSA [Art. 235.º CP] Gestão dolosa que causa prejuízo à Autoridade Tributária e ao parceiro operador.\n\n> VIOLAÇÃO DAC7 [Diretiva (UE) 2021/514] Incumprimento das obrigações de reporte automático de rendimentos às Autoridades Fiscais dos Estados-Membros (EM).`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "ANÁLISE DE TIPOLOGIAS DE RISCO DETETADAS — CEJ / PJ / RGIT" : "ANALYSIS OF DETECTED RISK TYPOLOGIES — CEJ / PJ / RGIT", style: 'h2' },
+                { text: isPT
+                    ? `> FRAUDE FISCAL [Art. 103.º RGIT] Omissão de proveitos e retenção indevida de IVA sobre comissões. Pena: prisão até 3 anos ou multa.\n\n> FRAUDE FISCAL QUALIFICADA [Art. 104.º RGIT] Quando a vantagem patrimonial obtida excede 15 vezes o salário mínimo nacional anual.\n\n> BRANQUEAMENTO DE CAPITAIS [Lei 83/2017 (BCFT)] Dissimulação da origem de fundos provenientes de omissão fiscal através de fluxos algorítmicos opacos.\n\n> GESTÃO DANOSA [Art. 235.º CP] Gestão dolosa que causa prejuízo à Autoridade Tributária e ao parceiro operador.\n\n> VIOLAÇÃO DAC7 [Diretiva (UE) 2021/514] Incumprimento das obrigações de reporte automático de rendimentos às Autoridades Fiscais dos Estados-Membros (EM).`
+                    : `> TAX FRAUD [Art. 103 RGIT] Omission of proceeds and undue retention of VAT on commissions. Penalty: imprisonment up to 3 years or fine.\n\n> QUALIFIED TAX FRAUD [Art. 104 RGIT] When the financial advantage obtained exceeds 15 times the annual national minimum wage.\n\n> MONEY LAUNDERING [Law 83/2017 (AML/CFT)] Concealment of the origin of funds arising from tax omission through opaque algorithmic flows.\n\n> DAMAGING MANAGEMENT [Art. 235 PT Criminal Code] Wilful mismanagement causing harm to the Tax Authority and the operating partner.\n\n> DAC7 VIOLATION [Directive (EU) 2021/514] Non-compliance with automatic income reporting obligations to the Tax Authorities of the Member States (MS).`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 14. SALVAGUARDA JURISDICIONAL ==========
-                { text: "SALVAGUARDA JURISDICIONAL — SEDE ESTRANGEIRA NÃO EXIME RESPONSABILIDADE", style: 'h2' },
-                { text: "A eventual invocação de sede social em jurisdição estrangeira (nomeadamente na República da Estónia, onde diversas plataformas de economia de plataforma estão registadas) não constitui fundamento válido de exclusão da responsabilidade fiscal e penal em território português.\n\nFundamento legal: (1) Art. 18.º da Lei Geral Tributária (LGT) — a obrigação tributária nasce no local onde o facto tributário ocorre (Lex Loci Solutions), independentemente da sede do operador; (2) Diretiva (UE) 2021/514 (DAC7), Art. 4.º — os operadores de plataformas digitais com utilizadores em Estados-Membros estão sujeitos a obrigações de reporte à Autoridade Tributária do Estado-Membro de atividade, independentemente da sua sede; (3) Regulamento (CE) n.º 593/2008 (Roma I) — a lei aplicável aos contratos de prestação de serviços é a lei do país onde o prestador tem a sua residência habitual ou, no caso de consumidores, a lei do país de residência deste.", style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "SALVAGUARDA JURISDICIONAL — SEDE ESTRANGEIRA NÃO EXIME RESPONSABILIDADE" : "JURISDICTIONAL SAFEGUARD — FOREIGN HEADQUARTERS DOES NOT EXEMPT LIABILITY", style: 'h2' },
+                { text: isPT
+                    ? "A eventual invocação de sede social em jurisdição estrangeira (nomeadamente na República da Estónia, onde diversas plataformas de economia de plataforma estão registadas) não constitui fundamento válido de exclusão da responsabilidade fiscal e penal em território português.\n\nFundamento legal: (1) Art. 18.º da Lei Geral Tributária (LGT) — a obrigação tributária nasce no local onde o facto tributário ocorre (Lex Loci Solutions), independentemente da sede do operador; (2) Diretiva (UE) 2021/514 (DAC7), Art. 4.º — os operadores de plataformas digitais com utilizadores em Estados-Membros estão sujeitos a obrigações de reporte à Autoridade Tributária do Estado-Membro de atividade, independentemente da sua sede; (3) Regulamento (CE) n.º 593/2008 (Roma I) — a lei aplicável aos contratos de prestação de serviços é a lei do país onde o prestador tem a sua residência habitual ou, no caso de consumidores, a lei do país de residência deste."
+                    : "Any invocation of a registered office in a foreign jurisdiction (namely the Republic of Estonia, where several platform-economy companies are registered) does not constitute valid grounds for excluding tax and criminal liability in Portuguese territory.\n\nLegal basis: (1) Art. 18 of the General Tax Law (LGT) — the tax obligation arises at the place where the taxable event occurs (Lex Loci Solutionis), regardless of the operator's registered office; (2) Directive (EU) 2021/514 (DAC7), Art. 4 — digital platform operators with users in Member States are subject to reporting obligations to the Tax Authority of the Member State of activity, regardless of their registered office; (3) Regulation (EC) No. 593/2008 (Rome I) — the law applicable to service contracts is the law of the country where the service provider has their habitual residence or, in the case of consumers, the law of the consumer's country of residence.",
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 15. CERTIFICAÇÃO DIGITAL ==========
-                { text: "7. CERTIFICAÇÃO DIGITAL", style: 'h2' },
-                { text: "Sistema de peritagem forense estruturado em conformidade com as normas, com selo de integridade digital SHA-256. Todos os relatórios são temporalmente selados e auditáveis.\n\nAlgoritmo Hash: SHA-256 (Forense)\nTimestamp: RFC 3161\nValidade Prova: Indeterminada\nCertificação: UNIFIED - PROBATUM v1.0-COMMERCIAL-LITIGATION · DORA COMPLIANT\n\nEste relatório cumpre com o Regulamento (UE) 2022/2554 (DORA) - Digital Operational Resilience Act, assegurando a resiliência operacional digital e a integridade das evidências digitais processadas.", style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "7. CERTIFICAÇÃO DIGITAL" : "7. DIGITAL CERTIFICATION", style: 'h2' },
+                { text: isPT
+                    ? "Sistema de peritagem forense estruturado em conformidade com as normas, com selo de integridade digital SHA-256. Todos os relatórios são temporalmente selados e auditáveis.\n\nAlgoritmo Hash: SHA-256 (Forense)\nTimestamp: RFC 3161\nValidade Prova: Indeterminada\nCertificação: UNIFIED - PROBATUM v1.0-COMMERCIAL-LITIGATION · DORA COMPLIANT\n\nEste relatório cumpre com o Regulamento (UE) 2022/2554 (DORA) - Digital Operational Resilience Act, assegurando a resiliência operacional digital e a integridade das evidências digitais processadas."
+                    : "Forensic expert system structured in compliance with applicable standards, with SHA-256 digital integrity seal. All reports are time-stamped and auditable.\n\nHash Algorithm: SHA-256 (Forensic)\nTimestamp: RFC 3161\nEvidence Validity: Indeterminate\nCertification: UNIFIED - PROBATUM v1.0-COMMERCIAL-LITIGATION · DORA COMPLIANT\n\nThis report complies with Regulation (EU) 2022/2554 (DORA) - Digital Operational Resilience Act, ensuring digital operational resilience and the integrity of the digital evidence processed.",
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 16. ANÁLISE TÉCNICO-JURÍDICA DETALHADA ==========
                 { text: "8. ANÁLISE TÉCNICO-JURÍDICA / DETAILED EXPERT ANALYSIS", style: 'h2' },
-                { text: `I. ANÁLISE TÉCNICO-JURÍDICA (2S):\nDuas discrepâncias fundamentais detetadas (Verdade Material Auditada):\n\n1. Diferencial de Base em Análise (Despesas/Comissões vs Fatura): ${formatForensicCurrency(omissaoCustos)} (${percOmissaoCustos.toFixed(2)}%) [Smoking Gun 2]\n\n2. SAF-T Valor Bruto Total vs DAC7 (Revenue Omission): ${formatForensicCurrency(omissaoReceita)} (${m.discrepancyPct.toFixed(2)}%) [Smoking Gun 1]`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT
+                    ? `I. ANÁLISE TÉCNICO-JURÍDICA (2S):\nDuas discrepâncias fundamentais detetadas (Verdade Material Auditada):\n\n1. Diferencial de Base em Análise (Despesas/Comissões vs Fatura): ${formatForensicCurrency(omissaoCustos)} (${percOmissaoCustos.toFixed(2)}%) [Smoking Gun 2]\n\n2. SAF-T Valor Bruto Total vs DAC7 (Revenue Omission): ${formatForensicCurrency(omissaoReceita)} (${m.discrepancyPct.toFixed(2)}%) [Smoking Gun 1]`
+                    : `I. DETAILED EXPERT ANALYSIS (2S):\nTwo fundamental discrepancies detected (Audited Material Truth):\n\n1. Base Differential Under Review (Expenses/Commissions vs Invoice): ${formatForensicCurrency(omissaoCustos)} (${percOmissaoCustos.toFixed(2)}%) [Smoking Gun 2]\n\n2. SAF-T Total Gross Value vs DAC7 (Revenue Omission): ${formatForensicCurrency(omissaoReceita)} (${m.discrepancyPct.toFixed(2)}%) [Smoking Gun 1]`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ── PATCH P30 — patch_unifed_macro_v13 (1.C adaptado) ───────────────
                 // ANTERIOR: o PDF não continha um parágrafo equivalente a
@@ -2163,11 +2265,17 @@ ADMISSIBILIDADE DA PROVA DIGITAL:
                 // omissão (não o IVA/IRC sobre ela); o termo "dano fiscal mensal
                 // apurado" refere-se ao valor mensal apurado como omitido, que
                 // fundamenta os cálculos de IVA/IRC/projeção de mercado acima.
-                { text: `O padrão de omissão sustentado (${percOmissaoCustos.toFixed(2)}%) + dano fiscal mensal apurado de ${formatForensicCurrency(mediaMensalOmissao)} sustenta a análise de irregularidade comercial agravada (Art. 405.º CC).`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT
+                    ? `O padrão de omissão sustentado (${percOmissaoCustos.toFixed(2)}%) + dano fiscal mensal apurado de ${formatForensicCurrency(mediaMensalOmissao)} sustenta a análise de irregularidade comercial agravada (Art. 405.º CC).`
+                    : `The sustained omission pattern (${percOmissaoCustos.toFixed(2)}%) combined with the calculated monthly fiscal damage of ${formatForensicCurrency(mediaMensalOmissao)} supports the analysis of aggravated commercial irregularity (Art. 405 PT Civil Code).`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 17. FACTOS CONSTATADOS (C1..C4) ==========
                 { text: "9. FACTOS CONSTATADOS / MATERIAL FACTS (Material Truth)", style: 'h2' },
-                { text: `C1. SAF-T VALOR BRUTO TOTAL vs DAC7 (Sub-comunicação Plataforma ao Estado):\nSAF-T Valor Bruto Total (Faturação Interna): ${formatForensicCurrency(m.saftGross)}\nDAC7 Reportado à AT (Plataforma Digital): ${formatForensicCurrency(m.dac7Total)}\n→ C1: ${formatForensicCurrency(omissaoReceita)} (${m.discrepancyPct.toFixed(2)}%) — Omissão de receita ao Estado\n\nC2. DESPESAS/COMISSÕES EXTRATO vs FATURADO (Prova Rainha — Retenção Ilegal):\nComissões Retidas — Extrato Bancário (BTOR): ${formatForensicCurrency(m.btorLedger)}\nComissões Faturadas — Plataforma (BTF): ${formatForensicCurrency(m.btfInvoice)}\n→ C2 [SG-2]: ${formatForensicCurrency(omissaoCustos)} (${percOmissaoCustos.toFixed(2)}%) — Diferencial de Base em Análise\n\nC3. SAF-T VALOR BRUTO TOTAL vs GANHOS (EXTRATO) (Viagens Faturadas vs Transferências):\nSAF-T Valor Bruto (Viagens Faturadas — Sistema): ${formatForensicCurrency(m.saftGross)}\nGanhos Extrato (Transferências Efetivas — Banco): ${formatForensicCurrency(m.ganhos)}\n→ C3: ${formatForensicCurrency(m.saftGross - m.ganhos)} (${(m.saftGross - m.ganhos) === 0 ? '0.00' : ((m.saftGross - m.ganhos) / m.saftGross * 100).toFixed(2)}%) — Gap entre faturado e transferido\n\nC4. GANHOS LÍQUIDOS DECLARADOS vs LÍQUIDO REAL EXTRATO (Impacto Final SP):\nLíquido Declarado/Fiscal (SAF-T * Fatura): ${formatForensicCurrency(m.saftGross - m.btfInvoice)}\nLíquido Real — Extrato (Ganhos Líquidos SP): ${formatForensicCurrency(m.ganhos - m.btorLedger)}\n→ C4: ${formatForensicCurrency((m.saftGross - m.btfInvoice) - (m.ganhos - m.btorLedger))} (0.00%) — Diferença final no bolso do sujeito passivo`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT
+                    ? `C1. SAF-T VALOR BRUTO TOTAL vs DAC7 (Sub-comunicação Plataforma ao Estado):\nSAF-T Valor Bruto Total (Faturação Interna): ${formatForensicCurrency(m.saftGross)}\nDAC7 Reportado à AT (Plataforma Digital): ${formatForensicCurrency(m.dac7Total)}\n→ C1: ${formatForensicCurrency(omissaoReceita)} (${m.discrepancyPct.toFixed(2)}%) — Omissão de receita ao Estado\n\nC2. DESPESAS/COMISSÕES EXTRATO vs FATURADO (Prova Rainha — Retenção Ilegal):\nComissões Retidas — Extrato Bancário (BTOR): ${formatForensicCurrency(m.btorLedger)}\nComissões Faturadas — Plataforma (BTF): ${formatForensicCurrency(m.btfInvoice)}\n→ C2 [SG-2]: ${formatForensicCurrency(omissaoCustos)} (${percOmissaoCustos.toFixed(2)}%) — Diferencial de Base em Análise\n\nC3. SAF-T VALOR BRUTO TOTAL vs GANHOS (EXTRATO) (Viagens Faturadas vs Transferências):\nSAF-T Valor Bruto (Viagens Faturadas — Sistema): ${formatForensicCurrency(m.saftGross)}\nGanhos Extrato (Transferências Efetivas — Banco): ${formatForensicCurrency(m.ganhos)}\n→ C3: ${formatForensicCurrency(m.saftGross - m.ganhos)} (${(m.saftGross - m.ganhos) === 0 ? '0.00' : ((m.saftGross - m.ganhos) / m.saftGross * 100).toFixed(2)}%) — Gap entre faturado e transferido\n\nC4. GANHOS LÍQUIDOS DECLARADOS vs LÍQUIDO REAL EXTRATO (Impacto Final SP):\nLíquido Declarado/Fiscal (SAF-T * Fatura): ${formatForensicCurrency(m.saftGross - m.btfInvoice)}\nLíquido Real — Extrato (Ganhos Líquidos SP): ${formatForensicCurrency(m.ganhos - m.btorLedger)}\n→ C4: ${formatForensicCurrency((m.saftGross - m.btfInvoice) - (m.ganhos - m.btorLedger))} (0.00%) — Diferença final no bolso do sujeito passivo`
+                    : `C1. SAF-T TOTAL GROSS VALUE vs DAC7 (Platform Under-reporting to the State):\nSAF-T Total Gross Value (Internal Invoicing): ${formatForensicCurrency(m.saftGross)}\nDAC7 Reported to Tax Authority (Digital Platform): ${formatForensicCurrency(m.dac7Total)}\n→ C1: ${formatForensicCurrency(omissaoReceita)} (${m.discrepancyPct.toFixed(2)}%) — Revenue omission to the State\n\nC2. EXPENSES/COMMISSIONS STATEMENT vs INVOICED (Queen's Proof — Unlawful Retention):\nCommissions Retained — Bank Statement (BTOR): ${formatForensicCurrency(m.btorLedger)}\nCommissions Invoiced — Platform (BTF): ${formatForensicCurrency(m.btfInvoice)}\n→ C2 [SG-2]: ${formatForensicCurrency(omissaoCustos)} (${percOmissaoCustos.toFixed(2)}%) — Base differential under review\n\nC3. SAF-T TOTAL GROSS VALUE vs EARNINGS (STATEMENT) (Invoiced Trips vs Transfers):\nSAF-T Gross Value (Invoiced Trips — System): ${formatForensicCurrency(m.saftGross)}\nStatement Earnings (Actual Bank Transfers): ${formatForensicCurrency(m.ganhos)}\n→ C3: ${formatForensicCurrency(m.saftGross - m.ganhos)} (${(m.saftGross - m.ganhos) === 0 ? '0.00' : ((m.saftGross - m.ganhos) / m.saftGross * 100).toFixed(2)}%) — Gap between invoiced and transferred amounts\n\nC4. DECLARED NET EARNINGS vs ACTUAL NET STATEMENT (Final Impact on Taxpayer):\nDeclared/Fiscal Net (SAF-T * Invoice): ${formatForensicCurrency(m.saftGross - m.btfInvoice)}\nActual Net — Statement (Taxpayer Net Earnings): ${formatForensicCurrency(m.ganhos - m.btorLedger)}\n→ C4: ${formatForensicCurrency((m.saftGross - m.btfInvoice) - (m.ganhos - m.btorLedger))} (0.00%) — Final difference in the taxpayer's pocket`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 18. IMPACTO FISCAL (TABELA) ==========
                 { text: "10. IMPACTO FISCAL / FISCAL IMPACT & MANAGEMENT AGGRAVATION", style: 'h2' },
@@ -2191,7 +2299,7 @@ ADMISSIBILIDADE DA PROVA DIGITAL:
                                     fillColor: i % 2 === 0 ? '#f8faff' : '#ffffff',
                                     alignment: ci === 0 ? 'left' : 'right'
                                   })))
-                                : [[{ text: 'Dados indisponíveis', colSpan: 3, alignment: 'center', fontSize: 8 }, {}, {}]]
+                                : [[{ text: isPT ? 'Dados indisponíveis' : 'Data unavailable', colSpan: 3, alignment: 'center', fontSize: 8 }, {}, {}]]
                             )
                         ]
                     },
@@ -2205,16 +2313,22 @@ ADMISSIBILIDADE DA PROVA DIGITAL:
                 },
 
                 // ========== 19. IMPACTO SISTÉMICO ESTIMADO ==========
-                { text: `IMPACTO SISTÉMICO ESTIMADO (7 Anos · 38.000 operadores x 12 meses): ${formatForensicCurrency(impacto7Anos)}`, style: 'h2' },
-                { text: `Esta consultoria técnica revela um padrão de omissão que, extrapolado ao universo de 38.000 operadores, representa uma exposição tributária de ${formatForensicCurrency(impacto7Anos)}. Este dado fundamenta a relevância da presente ação para a tutela de interesses coletivos e correção de distorções de mercado. Projeção: Omissão mensal média x 38.000 motoristas TVDE (INE/IMT) x 12 meses x 7 anos (prazo Art. 45.º LGT). Projeção fundamenta relevância processual para escritórios de elite (Projection supports legal relevance for elite law firms).`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: (isPT ? `IMPACTO SISTÉMICO ESTIMADO (7 Anos · 38.000 operadores x 12 meses): ` : `ESTIMATED SYSTEMIC IMPACT (7 Years · 38,000 operators x 12 months): `) + formatForensicCurrency(impacto7Anos), style: 'h2' },
+                { text: isPT
+                    ? `Esta consultoria técnica revela um padrão de omissão que, extrapolado ao universo de 38.000 operadores, representa uma exposição tributária de ${formatForensicCurrency(impacto7Anos)}. Este dado fundamenta a relevância da presente ação para a tutela de interesses coletivos e correção de distorções de mercado. Projeção: Omissão mensal média x 38.000 motoristas TVDE (INE/IMT) x 12 meses x 7 anos (prazo Art. 45.º LGT). Projeção fundamenta relevância processual para escritórios de elite.`
+                    : `This technical consultancy reveals an omission pattern that, when extrapolated to the universe of 38,000 operators, represents a tax exposure of ${formatForensicCurrency(impacto7Anos)}. This figure supports the relevance of this action for the protection of collective interests and the correction of market distortions. Projection: average monthly omission x 38,000 TVDE drivers (INE/IMT) x 12 months x 7 years (Art. 45 LGT statute of limitations). This projection supports the procedural relevance for elite law firms.`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 20. PERDA DE CHANCE E DANO REPUTACIONAL ==========
-                { text: "PERDA DE CHANCE E DANO REPUTACIONAL — RESPONSABILIDADE CIVIL EXTRACONTRATUAL", style: 'h2' },
-                { text: `Dano Reputacional e Perda de Chance: O reporte viciado da plataforma à Autoridade Tributária (com uma discrepância detetada de ${formatForensicCurrency(omissaoReceita)}) contamina diretamente o perfil de risco (Risk Scoring) do parceiro. Sendo a plataforma a detentora do monopólio de emissão documental (Art. 36.º n.º 11 CIVA), o sujeito passivo é penalizado sem dolo. Esta adulteração do perfil fiscal gera lucros cessantes mensuráveis, inibindo o acesso a financiamento bancário, linhas de crédito e benefícios fiscais, constituindo fundamento para indemnização por responsabilidade civil extracontratual.`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "PERDA DE CHANCE E DANO REPUTACIONAL — RESPONSABILIDADE CIVIL EXTRACONTRATUAL" : "LOSS OF CHANCE AND REPUTATIONAL DAMAGE — NON-CONTRACTUAL CIVIL LIABILITY", style: 'h2' },
+                { text: isPT
+                    ? `Dano Reputacional e Perda de Chance: O reporte viciado da plataforma à Autoridade Tributária (com uma discrepância detetada de ${formatForensicCurrency(omissaoReceita)}) contamina diretamente o perfil de risco (Risk Scoring) do parceiro. Sendo a plataforma a detentora do monopólio de emissão documental (Art. 36.º n.º 11 CIVA), o sujeito passivo é penalizado sem dolo. Esta adulteração do perfil fiscal gera lucros cessantes mensuráveis, inibindo o acesso a financiamento bancário, linhas de crédito e benefícios fiscais, constituindo fundamento para indemnização por responsabilidade civil extracontratual.`
+                    : `Reputational Damage and Loss of Chance: The platform's flawed reporting to the Tax Authority (with a detected discrepancy of ${formatForensicCurrency(omissaoReceita)}) directly contaminates the partner's risk profile (Risk Scoring). As the platform holds a monopoly over document issuance (Art. 36(11) VAT Code), the taxpayer is penalized without intent. This distortion of the tax profile generates measurable loss of profits, hindering access to bank financing, credit lines and tax benefits, constituting grounds for compensation under non-contractual civil liability.`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 21. NOTA TÉCNICA SOBRE PRÁTICAS DE OFUSCAÇÃO ==========
                 { text: "FORENSIC NOTE / NOTA TÉCNICA TÉCNICO-JURÍDICA — Data Obfuscation Practices:", style: 'h2' },
-                { text: `A análise detetou práticas de obscurecimento de dados por parte da plataforma sob exame, nomeadamente a alteração anual da estrutura de reporte (Ledger) e da sintaxe utilizada (moeda e separadores decimais), bem como a utilização do termo "Ganhos Líquidos" para designar meras transferências bancárias, ocultando a natureza das retenções efetuadas sem o devido suporte fiscal.
+                { text: isPT ? `A análise detetou práticas de obscurecimento de dados por parte da plataforma sob exame, nomeadamente a alteração anual da estrutura de reporte (Ledger) e da sintaxe utilizada (moeda e separadores decimais), bem como a utilização do termo "Ganhos Líquidos" para designar meras transferências bancárias, ocultando a natureza das retenções efetuadas sem o devido suporte fiscal.
 
 ## 1. SYNTAX INCONSISTENCY / Inconsistência de Sintaxe (Data Obfuscation - Level 1):
 Dada a volatilidade das plataformas digitais, o sistema detetou que a estrutura de reporte (Ledger) é objeto de atualização anual. Exemplo material verificado na transição 2024/2025: o campo anteriormente designado "Portagens" transitou para "Reembolsos de despesas". Adicionalmente, detetou-se a alteração deliberada de separadores decimais (ponto vs. vírgula) e do posicionamento do símbolo monetário (EUR) entre períodos anuais — exemplo: "7755.16EUR" torna-se "EUR 7.731,22" no ano seguinte. O UNIFED PROBATUM garante a reconciliação de ambos os campos para efeitos de reconstrução de passivo fiscal. Esta mutação sintática e semântica sistemática dificulta a leitura algorítmica automática e impede a reconciliação direta por auditores externos, constituindo indício de manipulação intencional do formato dos dados com o propósito de dificultar a auditoria forense.
@@ -2226,21 +2340,42 @@ A plataforma utiliza o termo "Ganhos Líquidos" para designar meras transferênc
 A plataforma impõe uma janela máxima de 6 meses para acesso a dados históricos detalhados (extratos de atividade). Esta limitação temporal constitui uma estratégia de eliminação de rasto de auditoria (audit trail destruction), impedindo a reconstrução de séries históricas superiores ao semestre. Nos termos do Art. 40.º do CIVA, os registos primários devem ser conservados por 10 anos.
 
 ## 4. TEMPORAL MISMATCH / Desalinhamento Temporal (Pagamentos Semanais vs Reporte Mensal):
-As plataformas procedem ao pagamento dos prestadores por transferência bancária semanal, contudo, a emissão dos documentos de reporte fiscal (extratos e faturas) ocorre em formato mensal agregado. Esta assimetria temporal constitui uma tática de ofuscação que inviabiliza a reconciliação bancária direta (cruzamento 1:1 entre extrato bancário e documento de reporte), dificultando deliberadamente auditorias financeiras e a deteção atempada das discrepâncias.`, style: 'normal', margin: [0, 0, 0, 15] },
+As plataformas procedem ao pagamento dos prestadores por transferência bancária semanal, contudo, a emissão dos documentos de reporte fiscal (extratos e faturas) ocorre em formato mensal agregado. Esta assimetria temporal constitui uma tática de ofuscação que inviabiliza a reconciliação bancária direta (cruzamento 1:1 entre extrato bancário e documento de reporte), dificultando deliberadamente auditorias financeiras e a deteção atempada das discrepâncias.` : `The analysis detected data obfuscation practices by the platform under examination, namely the annual alteration of the reporting structure (Ledger) and the syntax used (currency and decimal separators), as well as the use of the term "Net Earnings" to designate mere bank transfers, concealing the nature of retentions made without proper tax support.
+
+## 1. SYNTAX INCONSISTENCY (Data Obfuscation - Level 1):
+Given the volatility of digital platforms, the system detected that the reporting structure (Ledger) is subject to annual updates. Material example verified in the 2024/2025 transition: the field previously labeled "Tolls" was renamed "Expense Reimbursements". Additionally, deliberate alteration of decimal separators (period vs. comma) and the positioning of the currency symbol (EUR) between annual periods was detected — example: "7755.16EUR" becomes "EUR 7,731.22" in the following year. UNIFED PROBATUM ensures reconciliation of both fields for the purpose of reconstructing tax liability. This systematic syntactic and semantic mutation hinders automatic algorithmic reading and prevents direct reconciliation by external auditors, constituting evidence of intentional manipulation of the data format with the purpose of hindering the forensic audit.
+
+## 2. SEMANTIC AMBIGUITY ("Net Earnings" Masking - Fiscal Camouflage):
+The platform uses the term "Net Earnings" to designate mere gross bank transfers, masking commission retentions that do not deduct the taxes owed under the VAT reverse-charge regime (Art. 2(1)(i) VAT Code). This misleading nomenclature induces the taxpayer to declare amounts below the actual tax base, improperly shifting the tax risk onto the taxpayer.
+
+## 3. DATA OBFUSCATION - Limited Access Window (Audit Trail Destruction):
+The platform imposes a maximum window of 6 months for access to detailed historical data (activity statements). This time limitation constitutes an audit trail destruction strategy, preventing the reconstruction of historical series beyond the semester. Under Art. 40 of the VAT Code, primary records must be retained for 10 years.
+
+## 4. TEMPORAL MISMATCH (Weekly Payments vs Monthly Reporting):
+Platforms pay service providers by weekly bank transfer, yet the issuance of tax reporting documents (statements and invoices) occurs in aggregated monthly format. This temporal asymmetry constitutes an obfuscation tactic that prevents direct bank reconciliation (1:1 matching between bank statement and reporting document), deliberately hindering financial audits and the timely detection of discrepancies.`, style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 22. QUADRO TRIBUTÁRIO E IMPACTO ==========
                 { text: "TAX FRAMEWORK / QUADRO TRIBUTÁRIO — Direct Financial Impact:", style: 'h2' },
-                { text: `VAT 23% / IVA 23% Omitido (Autoliquidação): ${formatForensicCurrency(iva23)}\nVAT 6% / IVA 6% Omitido (Transporte): ${formatForensicCurrency(iva6)}\nRevenue Omission (DAC7) / Omissão Receita: ${formatForensicCurrency(omissaoReceita)}\nExpense Omission / Omissão Custos (BTF): ${formatForensicCurrency(omissaoCustos)}\nAsfixia Financeira (IVA 6% sobre Bruto): ${formatForensicCurrency(asfixiaFinanceira)}\nContribuição IMT/AMT Omitida (5%): ${formatForensicCurrency(contribuicaoIMT)}\nIMPACTO SISTÉMICO ESTIMADO (7 Anos • 38.000 operadores PT): ${formatForensicCurrency(impacto7Anos)}\n\n* Projeção baseada na quota de mercado da GIG Economy PT (2019-2025). Suporta relevância legal. / Projeção mercado GIG Economy PT (2019-2025).`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT
+                    ? `VAT 23% / IVA 23% Omitido (Autoliquidação): ${formatForensicCurrency(iva23)}\nVAT 6% / IVA 6% Omitido (Transporte): ${formatForensicCurrency(iva6)}\nRevenue Omission (DAC7) / Omissão Receita: ${formatForensicCurrency(omissaoReceita)}\nExpense Omission / Omissão Custos (BTF): ${formatForensicCurrency(omissaoCustos)}\nAsfixia Financeira (IVA 6% sobre Bruto): ${formatForensicCurrency(asfixiaFinanceira)}\nContribuição IMT/AMT Omitida (5%): ${formatForensicCurrency(contribuicaoIMT)}\nIMPACTO SISTÉMICO ESTIMADO (7 Anos • 38.000 operadores PT): ${formatForensicCurrency(impacto7Anos)}\n\n* Projeção baseada na quota de mercado da GIG Economy PT (2019-2025). Suporta relevância legal.`
+                    : `VAT 23% Omitted (Reverse Charge): ${formatForensicCurrency(iva23)}\nVAT 6% Omitted (Transport): ${formatForensicCurrency(iva6)}\nRevenue Omission (DAC7): ${formatForensicCurrency(omissaoReceita)}\nExpense Omission (BTF): ${formatForensicCurrency(omissaoCustos)}\nFinancial Strain (6% VAT on Gross): ${formatForensicCurrency(asfixiaFinanceira)}\nOmitted IMT/AMT Contribution (5%): ${formatForensicCurrency(contribuicaoIMT)}\nESTIMATED SYSTEMIC IMPACT (7 Years • 38,000 PT operators): ${formatForensicCurrency(impacto7Anos)}\n\n* Projection based on the PT GIG Economy market share (2019-2025). Supports legal relevance.`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 23. INVERSÃO DO ÓNUS DA PROVA ==========
                 { text: "QUALIFICAÇÃO JURÍDICA — CRIMINALIDADE DE COLARINHO BRANCO (WHITE-COLLAR CRIME)", style: 'h2' },
-                { text: `A engenharia algorítmica da plataforma cria uma 'zona cinzenta' premeditada entre o ganho real retido na fonte e o valor reportado em SAF-T/DAC7. Este diferencial não declarado fica num limbo contabilístico, caracterizando uma tipologia de criminalidade de colarinho branco e evasão fiscal estruturada, explorando a assimetria de informação contra o parceiro e o Estado.\n\nObjeto: Impossibilidade de Contraprova pelo Sujeito Passivo face à Assimetria Informativa.\nAnálise Técnica: A UNIFED-PROBATUM identificou uma divergência estrutural entre o Fluxo de Caixa Real (Ledger) e o Reporte Fiscal (SAF-T/DAC7). Dado que a plataforma detém o Monopólio da Emissão Documental (Art. 36.º, n.º 11 CIVA) e o controlo exclusivo sobre o algoritmo de cálculo de comissões, o parceiro encontra-se numa situação de indefesa técnica. A plataforma atua como "Black Box" fiscal — o sujeito passivo não tem acesso ao código-fonte nem aos logs brutos de transação que geram a faturação delegada.\n\nConclusão Técnico-Jurídica: Por força do Princípio da Proximidade da Prova (Acórdão STJ 11/07/2013) e do Art. 344.º n.º 2 do CC, opera-se a Inversão do Ônus da Prova: incumbe à plataforma demonstrar a integridade dos valores retidos (${formatForensicCurrency(omissaoCustos)}), sob pena de confissão implícita da apropriação indevida e da fraude fiscal aqui evidenciada. Cabe à Plataforma — e não ao sujeito passivo — provar a inexistência de dolo na retenção apurada.`, style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT
+                    ? `A engenharia algorítmica da plataforma cria uma 'zona cinzenta' premeditada entre o ganho real retido na fonte e o valor reportado em SAF-T/DAC7. Este diferencial não declarado fica num limbo contabilístico, caracterizando uma tipologia de criminalidade de colarinho branco e evasão fiscal estruturada, explorando a assimetria de informação contra o parceiro e o Estado.\n\nObjeto: Impossibilidade de Contraprova pelo Sujeito Passivo face à Assimetria Informativa.\nAnálise Técnica: A UNIFED-PROBATUM identificou uma divergência estrutural entre o Fluxo de Caixa Real (Ledger) e o Reporte Fiscal (SAF-T/DAC7). Dado que a plataforma detém o Monopólio da Emissão Documental (Art. 36.º, n.º 11 CIVA) e o controlo exclusivo sobre o algoritmo de cálculo de comissões, o parceiro encontra-se numa situação de indefesa técnica. A plataforma atua como "Black Box" fiscal — o sujeito passivo não tem acesso ao código-fonte nem aos logs brutos de transação que geram a faturação delegada.\n\nConclusão Técnico-Jurídica: Por força do Princípio da Proximidade da Prova (Acórdão STJ 11/07/2013) e do Art. 344.º n.º 2 do CC, opera-se a Inversão do Ônus da Prova: incumbe à plataforma demonstrar a integridade dos valores retidos (${formatForensicCurrency(omissaoCustos)}), sob pena de confissão implícita da apropriação indevida e da fraude fiscal aqui evidenciada. Cabe à Plataforma — e não ao sujeito passivo — provar a inexistência de dolo na retenção apurada.`
+                    : `The platform's algorithmic engineering creates a premeditated 'gray zone' between the actual earnings withheld at source and the value reported in SAF-T/DAC7. This undeclared differential remains in an accounting limbo, characterizing a white-collar crime typology and structured tax evasion, exploiting the information asymmetry against the partner and the State.\n\nSubject: Impossibility of Counter-Evidence by the Taxpayer Given the Information Asymmetry.\nTechnical Analysis: UNIFED-PROBATUM identified a structural divergence between the Actual Cash Flow (Ledger) and the Tax Report (SAF-T/DAC7). Given that the platform holds a Monopoly over Document Issuance (Art. 36(11) VAT Code) and exclusive control over the commission-calculation algorithm, the partner is in a position of technical defenselessness. The platform acts as a fiscal "Black Box" — the taxpayer has no access to the source code nor to the raw transaction logs that generate the delegated invoicing.\n\nTechnical-Legal Conclusion: By virtue of the Principle of Proximity to Evidence (STJ Ruling 11/07/2013) and Art. 344(2) of the Civil Code, the Burden of Proof is reversed: it is incumbent upon the platform to demonstrate the integrity of the retained amounts (${formatForensicCurrency(omissaoCustos)}), under penalty of implicit admission of misappropriation and the tax fraud evidenced herein. It is for the Platform — not the taxpayer — to prove the absence of intent in the retention identified.`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 24. DIAGRAMA DE FLUXO FINANCEIRO ==========
                 ...(sankeyImg ? [
-                    { text: "DIAGRAMA DE FLUXO FINANCEIRO — MONEY FLOW ANALYSIS", style: 'h2' },
+                    { text: isPT ? "DIAGRAMA DE FLUXO FINANCEIRO — MONEY FLOW ANALYSIS" : "FINANCIAL FLOW DIAGRAM — MONEY FLOW ANALYSIS", style: 'h2' },
                     { image: sankeyImg, width: 460, alignment: 'center', margin: [0, 5, 0, 12] },
-                    { text: `VALORES CRÍTICOS APURADOS:\n· IVA 23% omitido: ${formatForensicCurrency(iva23)}\n· IVA 6% omitido: ${formatForensicCurrency(iva6)}\n· Omissão de receita (SAF-T vs DAC7): ${formatForensicCurrency(omissaoReceita)}\n· Omissão de custos (BTF): ${formatForensicCurrency(omissaoCustos)} (${percOmissaoCustos.toFixed(2)}%)\n· IRC estimado omitido: ${formatForensicCurrency(ircEstimado)}\n· Asfixia Financeira (6% IVA sobre Bruto): ${formatForensicCurrency(asfixiaFinanceira)}`, style: 'normal', margin: [0, 0, 0, 15] }
+                    { text: isPT
+                        ? `VALORES CRÍTICOS APURADOS:\n· IVA 23% omitido: ${formatForensicCurrency(iva23)}\n· IVA 6% omitido: ${formatForensicCurrency(iva6)}\n· Omissão de receita (SAF-T vs DAC7): ${formatForensicCurrency(omissaoReceita)}\n· Omissão de custos (BTF): ${formatForensicCurrency(omissaoCustos)} (${percOmissaoCustos.toFixed(2)}%)\n· IRC estimado omitido: ${formatForensicCurrency(ircEstimado)}\n· Asfixia Financeira (6% IVA sobre Bruto): ${formatForensicCurrency(asfixiaFinanceira)}`
+                        : `CRITICAL VALUES IDENTIFIED:\n· VAT 23% omitted: ${formatForensicCurrency(iva23)}\n· VAT 6% omitted: ${formatForensicCurrency(iva6)}\n· Revenue omission (SAF-T vs DAC7): ${formatForensicCurrency(omissaoReceita)}\n· Expense omission (BTF): ${formatForensicCurrency(omissaoCustos)} (${percOmissaoCustos.toFixed(2)}%)\n· Estimated omitted Corporate Tax: ${formatForensicCurrency(ircEstimado)}\n· Financial Strain (6% VAT on Gross): ${formatForensicCurrency(asfixiaFinanceira)}`,
+                        style: 'normal', margin: [0, 0, 0, 15] }
                 ] : []),
 
                 // ========== 25. SCORE DE PERSISTÊNCIA (ATF) ==========
@@ -2255,25 +2390,38 @@ As plataformas procedem ao pagamento dos prestadores por transferência bancári
                 // exibido no dashboard (42/100, ASCENDENTE).
                 ...(function() {
                     const atfData = window.NEXUS_FORECAST || { risco: m.impactoSeteAnosMercado ? 42 : 0, trend: 'ASCENDENTE 🔴' };
-                    const textAtf = `SCORE DE PERSISTÊNCIA (SP): ${atfData.risco ? '42/100' : 'INDETERMINADO'}\nTENDÊNCIA: ${atfData.trend}\n\nMetodologia Preditiva: Regressão Linear Simples (OLS) combinada com Média Móvel Exponencial (EMA). Omissão estruturada confirmada.`;
+
+                    // Cálculo de Outliers > 2σ para paridade com o Dashboard
+                    // (mesmo algoritmo do Bloco 2 / Fase 10 em script.js — desvio padrão amostral n-1)
+                    const monthlyData = m.monthlyData || {};
+                    const monthKeysAtf = Object.keys(monthlyData).sort();
+                    let outlierCount = 0;
+                    if (monthKeysAtf.length >= 2) {
+                        const diffValues = monthKeysAtf.map(k => Math.abs((monthlyData[k].despesas || 0) - (monthlyData[k].faturaPlataforma || 0)));
+                        const avgDiff = diffValues.reduce((a, b) => a + b, 0) / diffValues.length;
+                        const stdDevDiff = Math.sqrt(diffValues.map(x => Math.pow(x - avgDiff, 2)).reduce((a, b) => a + b, 0) / (diffValues.length - 1));
+                        outlierCount = stdDevDiff > 0 ? diffValues.filter(x => Math.abs(x - avgDiff) > 2 * stdDevDiff).length : 0;
+                    }
+
+                    const textAtf = `SCORE DE PERSISTÊNCIA (SP): ${atfData.risco ? '42/100' : 'INDETERMINADO'}\nTENDÊNCIA: ${atfData.trend}\nOUTLIERS (> 2σ): ${outlierCount} picos anómalos detetados\n\nMetodologia Preditiva: Regressão Linear Simples (OLS) combinada com Média Móvel Exponencial (EMA). Omissão estruturada confirmada.`;
 
                     if (atfImg) {
                         return [
-                            { text: "SCORE DE PERSISTÊNCIA (ATF ENGINE)", style: 'h2' },
+                            { text: isPT ? "SCORE DE PERSISTÊNCIA (ATF ENGINE)" : "PERSISTENCE SCORE (ATF ENGINE)", style: 'h2' },
                             { text: textAtf, style: 'normal', margin: [0, 0, 0, 10], bold: true, color: '#b91c1c' },
                             { image: atfImg, width: 460, alignment: 'center', margin: [0, 5, 0, 12] }
                         ];
                     } else {
                         return [
-                            { text: "SCORE DE PERSISTÊNCIA (ATF ENGINE)", style: 'h2' },
+                            { text: isPT ? "SCORE DE PERSISTÊNCIA (ATF ENGINE)" : "PERSISTENCE SCORE (ATF ENGINE)", style: 'h2' },
                             { text: textAtf, style: 'normal', margin: [0, 0, 0, 15] }
                         ];
                     }
                 })(),
 
                 // ========== 26. SÍNTESE JURÍDICA TÉCNICO-JURÍDICA ==========
-                { text: "SÍNTESE JURÍDICA TÉCNICO-JURÍDICA — ANÁLISE DETERMINÍSTICA", style: 'h2' },
-                { text: `Documento gerado sob metodologia forense UNIFED-PROBATUM. A integridade dos dados é assegurada pela análise algorítmica de base determinística (non-probabilistic). Esta síntese é elaborada exclusivamente sobre os dados forenses certificados constantes do UNIFEDSystem.analysis (Fonte de Verdade Imutável) e uma base de artigos legais estática (CIVA/CIRC/RGIT/CPP/DAC7). Conformidade: Art. 125.º CPP · ISO/IEC 27037:2012 · DORA (UE) 2022/2554.
+                { text: isPT ? "SÍNTESE JURÍDICA TÉCNICO-JURÍDICA — ANÁLISE DETERMINÍSTICA" : "TECHNICAL-LEGAL SYNTHESIS — DETERMINISTIC ANALYSIS", style: 'h2' },
+                { text: isPT ? `Documento gerado sob metodologia forense UNIFED-PROBATUM. A integridade dos dados é assegurada pela análise algorítmica de base determinística (non-probabilistic). Esta síntese é elaborada exclusivamente sobre os dados forenses certificados constantes do UNIFEDSystem.analysis (Fonte de Verdade Imutável) e uma base de artigos legais estática (CIVA/CIRC/RGIT/CPP/DAC7). Conformidade: Art. 125.º CPP · ISO/IEC 27037:2012 · DORA (UE) 2022/2554.
 
 SÍNTESE JURÍDICA - MODO DE SEGURANÇA FORENSE
 [Nota: IA indisponível - Execução em modo standalone (narrativa local)]
@@ -2300,13 +2448,43 @@ Argumento da Defesa: "O contribuinte não tinha conhecimento técnico das obriga
 Resposta Técnico-Jurídica: O regime DAC7 está em vigor em Portugal desde 1 de janeiro de 2023 (Lei n.º 17/2023) e a plataforma tem obrigação de informar o prestador nos termos do Art. 8.º da Diretiva. A ignorância da lei não aproveita (Art. 6.º CC).
 
 DO ÓNUS DA PROVA E DA BOA FÉ CONTRATUAL:
-Dada a discrepância de ${percOmissaoCustos.toFixed(2)}%, opera-se a inversão do ónus da prova (Art. 344.º do C. Civil), cabendo à Ré demonstrar a licitude das retenções efectuadas à margem da facturação emitida.`, style: 'normal', margin: [0, 0, 0, 15] },
+Dada a discrepância de ${percOmissaoCustos.toFixed(2)}%, opera-se a inversão do ónus da prova (Art. 344.º do C. Civil), cabendo à Ré demonstrar a licitude das retenções efectuadas à margem da facturação emitida.` : `Document generated under UNIFED-PROBATUM forensic methodology. Data integrity is ensured by deterministic (non-probabilistic) algorithmic analysis. This synthesis is prepared exclusively from the certified forensic data contained in UNIFEDSystem.analysis (Immutable Source of Truth) and a static base of legal articles (VAT Code/Corporate Tax Code/RGIT/Criminal Procedure Code/DAC7). Compliance: Art. 125 PT Criminal Procedure Code · ISO/IEC 27037:2012 · DORA (EU) 2022/2554.
+
+LEGAL SYNTHESIS - FORENSIC SAFETY MODE
+[Note: AI unavailable - Running in standalone mode (local narrative)]
+
+Section A - LEGAL QUALIFICATION OF THE FACTS
+The discrepancies identified by the UNIFED-PROBATUM engine constitute evidence of tax omission under articles 103 and 104 of the RGIT. The divergence between the amounts reported by the platform (DAC7) and the amounts declared by the taxpayer constitutes, prima facie, the objective element of the offence of qualified tax fraud, given the unlawful financial advantage exceeding the legally established threshold of EUR 15,000.
+
+Section B - LEGAL AND TAX FRAMEWORK
+The omission of taxable base entails an obligation to regularize under Art. 78 of the VAT Code. The missing VAT, calculated at the rates of 23% and 6%, is added to the missing tax under Art. 2 of the VAT Code (reverse charge). Taxable profit must be corrected under Art. 17 of the Corporate Tax Code, with autonomous taxation applying to undocumented charges (Art. 88 Corporate Tax Code).
+
+Section C - ADMISSIBILITY CONCLUSIONS
+(I) CONSOLIDATION OF MATERIAL EVIDENCE: The technical density of the digital evidence extracted via UNIFED PURE is sufficient to demonstrate the causal link in the under-declaration of taxable base. The forensic methodology applied (ISO/IEC 27037:2012 · Art. 125 Criminal Procedure Code) is replicable and verifiable by an independent technical consultant.
+(II) ESTIMATED SYSTEMIC IMPACT (SIMULATION): Based on the discrepancy metric identified in this case and extrapolated to sector stability (38,000 drivers — IMT), a systemic hidden tax liability exceeding EUR 500M is estimated. This projection requires complementary technical-legal evidence at the enforcement stage and does not constitute proof of fact in this specific case.
+(III) PROCEDURAL RECOMMENDATION: Given the robustness of the artifacts presented, it is recommended that the burden of proof be reversed (Art. 344 Civil Code and Art. 100 Tax Procedure Code), while remaining available for the full exercise of cross-examination (Art. 327 Criminal Procedure Code) through access to the raw commission-calculation logs, under the platform's exclusive custody. UNIFED-PROBATUM performs RECONSTRUCTION OF DIGITAL MATERIAL TRUTH — not accounting — a legally relevant distinction for the admissibility of technical-legal evidence.
+
+Section D - CROSS-EXAMINATION STRATEGY
+Defense Argument: "The amounts reported by DAC7 include cancellation fees and refunds that do not constitute taxable income for the service provider."
+Technical-Legal Response: Under Art. 36 of the VAT Code, each component of remuneration must appear on an itemized invoice. The absence of itemized invoicing by component confirms the omission.
+
+Defense Argument: "The discrepancy results from exchange-rate differences and platform adjustments communicated late."
+Technical-Legal Response: Art. 29 of the VAT Code requires issuance within 5 business days. Late adjustments do not remove the declarative obligation for the original period (Art. 78 VAT Code).
+
+Defense Argument: "The taxpayer had no technical knowledge of the DAC7 obligations."
+Technical-Legal Response: The DAC7 regime has been in force in Portugal since January 1, 2023 (Law No. 17/2023), and the platform is obliged to inform the service provider under Art. 8 of the Directive. Ignorance of the law is not an excuse (Art. 6 Civil Code).
+
+ON THE BURDEN OF PROOF AND CONTRACTUAL GOOD FAITH:
+Given the discrepancy of ${percOmissaoCustos.toFixed(2)}%, the burden of proof is reversed (Art. 344 Civil Code), and it falls to the Defendant to demonstrate the lawfulness of the retentions made outside the invoicing issued.`, style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 27. CADEIA DE CUSTÓDIA COMPLETA ==========
-                { text: "11. CADEIA DE CUSTÓDIA", style: 'h2' },
+                { text: isPT ? "11. CADEIA DE CUSTÓDIA" : "11. CHAIN OF CUSTODY", style: 'h2' },
                 { text: `Master Hash: SHA256(Hash_SAFT + Hash_Extrato + Hash_Fatura) ${m.masterHash}`, style: 'code', wordBreak: 'break-all', margin: [0, 0, 0, 10] },
-                { text: "REFERENCIAL NORMATIVO (ISO/IEC 27037 e DL 28/2019):", style: 'h2' },
-                { text: "A recolha, preservação e análise das evidências digitais seguiram as diretrizes estabelecidas pela norma ISO/IEC 27037 (Linhas de orientação para identificação, recolha, aquisição e preservação de prova digital), em conformidade com o Decreto-Lei n.º 28/2019.\n\nEvidências processadas e respetivos hashes SHA-256 completos:", style: 'normal', margin: [0, 0, 0, 8] },
+                { text: isPT ? "REFERENCIAL NORMATIVO (ISO/IEC 27037 e DL 28/2019):" : "REGULATORY REFERENCE (ISO/IEC 27037 and DL 28/2019):", style: 'h2' },
+                { text: isPT
+                    ? "A recolha, preservação e análise das evidências digitais seguiram as diretrizes estabelecidas pela norma ISO/IEC 27037 (Linhas de orientação para identificação, recolha, aquisição e preservação de prova digital), em conformidade com o Decreto-Lei n.º 28/2019.\n\nEvidências processadas e respetivos hashes SHA-256 completos:"
+                    : "The collection, preservation and analysis of digital evidence followed the guidelines established by the ISO/IEC 27037 standard (Guidelines for identification, collection, acquisition and preservation of digital evidence), in compliance with Decree-Law No. 28/2019.\n\nProcessed evidence and respective full SHA-256 hashes:",
+                    style: 'normal', margin: [0, 0, 0, 8] },
                 {
                     table: {
                         widths: ['auto', '*'],
@@ -2314,8 +2492,8 @@ Dada a discrepância de ${percOmissaoCustos.toFixed(2)}%, opera-se a inversão d
                         dontBreakRows: true,
                         body: [
                             [
-                                { text: 'Ficheiro / Evidência', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'left' },
-                                { text: 'Hash SHA-256 (Completo) · Timestamp', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'left' }
+                                { text: isPT ? 'Ficheiro / Evidência' : 'File / Evidence', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'left' },
+                                { text: isPT ? 'Hash SHA-256 (Completo) · Timestamp' : 'SHA-256 Hash (Full) · Timestamp', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'left' }
                             ],
                             // [RET-TRI-02] Limite de 200 evidências no PDF (performance + pdfMake).
                             // Registos completos disponíveis no JSON estruturado em anexo.
@@ -2323,14 +2501,17 @@ Dada a discrepância de ${percOmissaoCustos.toFixed(2)}%, opera-se a inversão d
                                 { text: ev.filename, fontSize: 7.5, bold: true, fillColor: i % 2 === 0 ? '#f8faff' : '#ffffff' },
                                 {
                                     stack: [
-                                        { text: ev.hash || 'HASH_INDISPONÍVEL', fontSize: 6.5, style: 'code', color: '#0f172a' },
-                                        { text: `Processado: ${new Date().toISOString()}`, fontSize: 6, italics: true, color: '#64748b' }
+                                        { text: ev.hash || (isPT ? 'HASH_INDISPONÍVEL' : 'HASH_UNAVAILABLE'), fontSize: 6.5, style: 'code', color: '#0f172a' },
+                                        { text: `${isPT ? 'Processado' : 'Processed'}: ${new Date().toISOString()}`, fontSize: 6, italics: true, color: '#64748b' }
                                     ],
                                     fillColor: i % 2 === 0 ? '#f8faff' : '#ffffff'
                                 }
                             ]),
                             ...(evidenceList.length > 200 ? [
-                                [{ text: `(... e mais ${evidenceList.length - 200} evidências — registos completos no ficheiro JSON estruturado em anexo ao Pacote.)`, colSpan: 2, alignment: 'center', fontSize: 8, italics: true, fillColor: '#f8faff' }, {}]
+                                [{ text: isPT
+                                    ? `(... e mais ${evidenceList.length - 200} evidências — registos completos no ficheiro JSON estruturado em anexo ao Pacote.)`
+                                    : `(... and ${evidenceList.length - 200} more pieces of evidence — full records available in the structured JSON file attached to the Package.)`,
+                                   colSpan: 2, alignment: 'center', fontSize: 8, italics: true, fillColor: '#f8faff' }, {}]
                             ] : [])
                         ]
                     },
@@ -2342,11 +2523,20 @@ Dada a discrepância de ${percOmissaoCustos.toFixed(2)}%, opera-se a inversão d
                     },
                     margin: [0, 0, 0, 10]
                 },
-                { text: `Página ${Math.floor(Math.random() * 5) + 15} de 19 Master Hash SHA-256: ${m.masterHash.substring(0, 64)}`, style: 'footerText', alignment: 'center', margin: [0, 10, 0, 0] },
+                // ── RED-TEAM FIX: número de página fabricado removido ────────────────
+                // ANTERIOR: `Página ${Math.floor(Math.random() * 5) + 15} de 19` — um
+                // número de página ALEATÓRIO impresso no corpo do documento, sem
+                // relação com a paginação real do pdfMake. Perante um perito forense
+                // adverso, isto é prova IMEDIATA de conteúdo fabricado no documento,
+                // pondo em causa a credibilidade de TODO o relatório.
+                // CORRIGIDO: removido. O footer real do documento (função footer(),
+                // linha ~1830) já usa currentPage/pageCount genuínos do pdfMake —
+                // essa é a única fonte válida de numeração de página.
+                { text: `${isPT ? 'Master Hash SHA-256' : 'SHA-256 Master Hash'}: ${m.masterHash.substring(0, 64)}`, style: 'footerText', alignment: 'center', margin: [0, 10, 0, 0] },
 
                 // ========== 28. VALIDAÇÃO DE SELAGEM (TSA) ==========
-                { text: "8. VALIDAÇÃO DE SELAGEM GOVERNAMENTAL (TSA) — eIDAS / RFC 3161", style: 'h2' },
-                { text: `Protocolo de Carimbo de Tempo Qualificado conforme Regulamento eIDAS (UE) 910/2014 e RFC 3161 (IETF).
+                { text: isPT ? "8. VALIDAÇÃO DE SELAGEM GOVERNAMENTAL (TSA) — eIDAS / RFC 3161" : "8. GOVERNMENTAL SEAL VALIDATION (TSA) — eIDAS / RFC 3161", style: 'h2' },
+                { text: isPT ? `Protocolo de Carimbo de Tempo Qualificado conforme Regulamento eIDAS (UE) 910/2014 e RFC 3161 (IETF).
 
 • ESTADO DO SELO: NÃO APLICADO NESTA SESSÃO
 • PROTOCOLO: RFC 3161 (FreeTSA.org)
@@ -2370,20 +2560,44 @@ CONFORMIDADE NORMATIVA ACUMULADA:
 • RFC 3161 (IETF) — Protocolo de Carimbo de Tempo Internet PKI
 • ISO/IEC 27037:2012 — Diretrizes para Identificação e Recolha de Provas Digitais
 • DORA (UE) 2022/2554 — Resiliência Operacional Digital do Sector Financeiro
-• Art. 30.º RGPD — Registo das Atividades de Tratamento de Dados Pessoais`, style: 'normal', margin: [0, 0, 0, 8] },
-                { text: 'STATUS DE SELAGEM POR EVIDÊNCIA', bold: true, fontSize: 9, color: '#1e3a8a', margin: [0, 4, 0, 4] },
+• Art. 30.º RGPD — Registo das Atividades de Tratamento de Dados Pessoais` : `Qualified Time Stamp Protocol pursuant to the eIDAS Regulation (EU) 910/2014 and RFC 3161 (IETF).
+
+• SEAL STATUS: NOT APPLIED IN THIS SESSION
+• PROTOCOL: RFC 3161 (FreeTSA.org)
+• AUTHORITY (TSA): FreeTSA.org — https://freetsa.org
+• DATE/TIME UTC:
+• TOKEN / REFERENCE:
+• SEALING MODE: Online Submission to FreeTSA Node
+• TSR FILE:
+• SERIAL NUMBER (TSR):
+• SHA-256 MASTER HASH: ${m.masterHash.substring(0, 16)}...
+
+RFC 3161 PROTOCOL DETAILS (TimeStampToken):
+The RFC 3161 protocol defines a mechanism for obtaining proof of temporal existence with legal validity (non-repudiation).
+• The TSA receives the SHA-256 hash of the document/evidence.
+• It generates a digitally signed TimeStampToken (TST) with the TSA's X.509 certificate.
+• The TST includes: hash, certified UTC date/time, and immutable serial number.
+• Legal validity: eIDAS (EU) 910/2014, Art. 41 — Qualified Time Stamping Service.
+
+ACCUMULATED REGULATORY COMPLIANCE:
+• eIDAS (EU) 910/2014 — Qualified Electronic Trust Service
+• RFC 3161 (IETF) — Internet PKI Time-Stamp Protocol
+• ISO/IEC 27037:2012 — Guidelines for Identification and Collection of Digital Evidence
+• DORA (EU) 2022/2554 — Digital Operational Resilience of the Financial Sector
+• Art. 30 GDPR — Record of Personal Data Processing Activities`, style: 'normal', margin: [0, 0, 0, 8] },
+                { text: isPT ? 'STATUS DE SELAGEM POR EVIDÊNCIA' : 'SEALING STATUS BY EVIDENCE', bold: true, fontSize: 9, color: '#1e3a8a', margin: [0, 4, 0, 4] },
                 {
                     table: {
                         widths: ['*', 'auto'],
                         headerRows: 1,
                         body: [
                             [
-                                { text: 'Ficheiro / Evidência', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'left' },
-                                { text: 'Estado de Selagem RFC 3161', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'center' }
+                                { text: isPT ? 'Ficheiro / Evidência' : 'File / Evidence', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'left' },
+                                { text: isPT ? 'Estado de Selagem RFC 3161' : 'RFC 3161 Sealing Status', bold: true, fillColor: '#1e3a8a', color: '#ffffff', fontSize: 8, alignment: 'center' }
                             ],
                             ...evidenceList.map((ev, i) => [
                                 { text: ev.filename, fontSize: 7.5, fillColor: i % 2 === 0 ? '#f8faff' : '#ffffff' },
-                                { text: ev.hasValidTimestamp ? '✅ Selado' : '⚠ Sem Selagem', fontSize: 7.5, alignment: 'center', color: ev.hasValidTimestamp ? '#15803d' : '#b91c1c', fillColor: i % 2 === 0 ? '#f8faff' : '#ffffff' }
+                                { text: ev.hasValidTimestamp ? (isPT ? '✅ Selado' : '✅ Sealed') : (isPT ? '⚠ Sem Selagem' : '⚠ Not Sealed'), fontSize: 7.5, alignment: 'center', color: ev.hasValidTimestamp ? '#15803d' : '#b91c1c', fillColor: i % 2 === 0 ? '#f8faff' : '#ffffff' }
                             ])
                         ]
                     },
@@ -2407,26 +2621,35 @@ CONFORMIDADE NORMATIVA ACUMULADA:
                 // unifed_questionnaire_50questions.js:computeTopQuestions).
                 // Fallback: 3 das 10 questões críticas originais, se
                 // top3Questions ainda não tiver sido calculado.
-                { text: "12. QUESTIONÁRIO TÉCNICO-JURÍDICA ESTRATÉGICO (TOP 3 DINÂMICO)", style: 'h2' },
+                { text: isPT ? "12. QUESTIONÁRIO TÉCNICO-JURÍDICA ESTRATÉGICO (TOP 3 DINÂMICO)" : "12. STRATEGIC TECHNICAL-LEGAL QUESTIONNAIRE (DYNAMIC TOP 3)", style: 'h2' },
                 ...(m.top3Questions && m.top3Questions.length > 0 ? m.top3Questions.map((q, idx) => ({
-                    text: `Q${idx + 1} [Eixo ${q.axis} - Score: ${q.relevanceScore}]: ${q.text}\nNorma Legal: ${q.norma}\nImplicação: ${q.implicacao}\nDefesa: ${q.defesa}\n`,
+                    text: (isPT
+                        ? `Q${idx + 1} [Eixo ${q.axis} - Score: ${q.relevanceScore}]: ${q.text}\nNorma Legal: ${q.norma}\nImplicação: ${q.implicacao}\nDefesa: ${q.defesa}\n`
+                        : `Q${idx + 1} [Axis ${q.axis} - Score: ${q.relevanceScore}]: ${q.text}\nLegal Standard: ${q.norma}\nImplication: ${q.implicacao}\nDefense: ${q.defesa}\n`),
                     style: 'normal',
                     margin: [0, 0, 0, 8]
                 })) : [
-                    { text: `1. [* CRÍTICA] Qual a justificação técnica para o desvio de base tributável (BTOR vs BTF) detetado na triangulação IFDE?\n2. [* CRÍTICA] Disponibilize os 'raw data' (logs de servidor) das transações anteriores ao parsing contabilístico para o período em análise.\n3. [* CRÍTICA] Forneça o 'hash chain' ou prova criptográfica que atesta a imutabilidade dos registos de faturação e logs de acesso para o período em análise.`, style: 'normal', margin: [0, 0, 0, 15] }
+                    { text: isPT
+                        ? `1. [* CRÍTICA] Qual a justificação técnica para o desvio de base tributável (BTOR vs BTF) detetado na triangulação IFDE?\n2. [* CRÍTICA] Disponibilize os 'raw data' (logs de servidor) das transações anteriores ao parsing contabilístico para o período em análise.\n3. [* CRÍTICA] Forneça o 'hash chain' ou prova criptográfica que atesta a imutabilidade dos registos de faturação e logs de acesso para o período em análise.`
+                        : `1. [* CRITICAL] What is the technical justification for the tax-base deviation (BTOR vs BTF) detected in the IFDE triangulation?\n2. [* CRITICAL] Provide the raw data (server logs) of transactions prior to accounting parsing for the period under review.\n3. [* CRITICAL] Provide the hash chain or cryptographic proof attesting to the immutability of the invoicing records and access logs for the period under review.`,
+                        style: 'normal', margin: [0, 0, 0, 15] }
                 ]),
 
                 // ========== 30. CONCLUSÃO ==========
-                { text: "13. CONCLUSÃO / TECHNICAL EXPERT OPINION (Parecer Técnico)", style: 'h2' },
-                { text: `Conclui-se pela existência de Prova Digital Material de desconformidade. Este parecer técnico constitui base suficiente para a interposição de ação judicial e apuramento de responsabilidade civil/criminal, servindo o propósito de proteção jurídica do mandato dos advogados intervenientes.
+                { text: isPT ? "13. CONCLUSÃO / TECHNICAL EXPERT OPINION (Parecer Técnico)" : "13. CONCLUSION / TECHNICAL EXPERT OPINION", style: 'h2' },
+                { text: isPT ? `Conclui-se pela existência de Prova Digital Material de desconformidade. Este parecer técnico constitui base suficiente para a interposição de ação judicial e apuramento de responsabilidade civil/criminal, servindo o propósito de proteção jurídica do mandato dos advogados intervenientes.
 
 VI. CONCLUSÃO: Indícios de infração ao Artigo 108.º do Código do IVA e não conformidade com o Decreto-Lei n.º 28/2019.
 
-VALIDAÇÃO TÉCNICA DE CONSULTORIA: O presente relatório é selado com o Master Hash SHA-256 completo e o QR Code anexo, garantindo a sua integridade e não-repúdio. A sua validação pode ser efetuada através de qualquer ferramenta de verificação de hash ou leitura de QR Code, que remete para o hash completo do documento.`, style: 'normal', margin: [0, 0, 0, 15] },
+VALIDAÇÃO TÉCNICA DE CONSULTORIA: O presente relatório é selado com o Master Hash SHA-256 completo e o QR Code anexo, garantindo a sua integridade e não-repúdio. A sua validação pode ser efetuada através de qualquer ferramenta de verificação de hash ou leitura de QR Code, que remete para o hash completo do documento.` : `It is concluded that Material Digital Evidence of non-compliance exists. This technical opinion constitutes sufficient grounds for filing legal action and establishing civil/criminal liability, serving the purpose of legal protection for the mandate of the lawyers involved.
+
+VI. CONCLUSION: Evidence of infringement of Article 108 of the VAT Code and non-compliance with Decree-Law No. 28/2019.
+
+TECHNICAL CONSULTANCY VALIDATION: This report is sealed with the full SHA-256 Master Hash and the attached QR Code, ensuring its integrity and non-repudiation. Validation can be performed using any hash verification tool or QR Code reader, which links to the document's full hash.`, style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 31. NOTA DE RECONCILIAÇÃO DAC7 ==========
-                { text: "NOTA DE RECONCILIAÇÃO DAC7 — ZONA CINZENTA FISCAL", style: 'h2' },
-                { text: `A diferença entre os Ganhos Brutos reportados pelo extrato da plataforma e o valor comunicado à AT via DAC7 inclui fluxos que não estão sujeitos a comissão pela plataforma (Termos e Condições). Estes valores — gorjetas dos passageiros, ganhos de campanha e portagens — são transferências diretas ou reembolsos operacionais que não integram a base de cálculo da comissão, mas podem ter sido indevidamente incluídos no reporte DAC7, inflacionando o rendimento bruto declarado à Autoridade Tributária (AT).
+                { text: isPT ? "NOTA DE RECONCILIAÇÃO DAC7 — ZONA CINZENTA FISCAL" : "DAC7 RECONCILIATION NOTE — TAX GRAY ZONE", style: 'h2' },
+                { text: isPT ? `A diferença entre os Ganhos Brutos reportados pelo extrato da plataforma e o valor comunicado à AT via DAC7 inclui fluxos que não estão sujeitos a comissão pela plataforma (Termos e Condições). Estes valores — gorjetas dos passageiros, ganhos de campanha e portagens — são transferências diretas ou reembolsos operacionais que não integram a base de cálculo da comissão, mas podem ter sido indevidamente incluídos no reporte DAC7, inflacionando o rendimento bruto declarado à Autoridade Tributária (AT).
 
 ## FLUXOS NÃO SUJEITOS A COMISSÃO (Termos e Condições da Plataforma — 0%)
 • Ganhos da campanha (Campanhas): 405,00 € [0% comissão - incentivo plataforma]
@@ -2441,11 +2664,27 @@ Impacto DAC7: Os 451,15 € de fluxos não sujeitos a comissão não justificam 
 
 ## QUESTIONÁRIO ESTRATÉGICO AO ADVOGADO — CONTRADITÓRIO FORENSE
 Os valores isentos de comissão (Campanhas + Gorjetas + Portagens = 451,15 €) foram indevidamente incluídos no cálculo do rendimento bruto para efeitos de reporte SAF-T / DAC7? Se sim, porque é que foi aplicada uma presunção de rendimento sobre valores que, pelos Termos e Condições da plataforma para TVDE, não sofrem retenção nem comissão por parte da mesma?
-[Fundamentação Legal] Termos e Condições da Plataforma - Comissões 0% sobre gorjetas e campanhas - Art. 125.º CPP (admissibilidade da prova) - Art. 103.º RGIT (Fraude Fiscal) - DAC7 / Diretiva (UE) 2021/514 - AT — Autoridade Tributária e Aduaneira`, style: 'normal', margin: [0, 0, 0, 15] },
+[Fundamentação Legal] Termos e Condições da Plataforma - Comissões 0% sobre gorjetas e campanhas - Art. 125.º CPP (admissibilidade da prova) - Art. 103.º RGIT (Fraude Fiscal) - DAC7 / Diretiva (UE) 2021/514 - AT — Autoridade Tributária e Aduaneira` : `The difference between the Gross Earnings reported in the platform statement and the amount communicated to the Tax Authority via DAC7 includes flows that are not subject to commission by the platform (Terms and Conditions). These amounts — passenger tips, campaign earnings and tolls — are direct transfers or operational reimbursements that do not form part of the commission calculation base, but may have been improperly included in the DAC7 report, inflating the gross income declared to the Tax Authority.
+
+## FLOWS NOT SUBJECT TO COMMISSION (Platform Terms and Conditions — 0%)
+• Campaign earnings: €405.00 [0% commission - platform incentive]
+• Passenger tips: €46.00 [0% commission - P2P transfer]
+• Tolls (2024): €0.15 [operational reimbursement]
+• Cancellation Fees: €58.10 [already included in Expenses — Subject to Commission]
+TOTAL NOT SUBJECT TO COMMISSION (Campaigns + Tips + Tolls): €451.15
+
+Technical Consultant Note: The amount of €${ISENCAO_BASE_TRIBUTAVEL.toFixed(2).replace('.', ',')} was segregated for not being subject to commission (per Platform FAQ). This amount was subtracted from the calculation base prior to the generation of this forensic report, in compliance with the Platform's Terms and Conditions for TVDE and the principle of taxing only income actually subject to commission.
+
+DAC7 Impact: The €451.15 of flows not subject to commission does not account for the entirety of the discrepancy between the platform statement (${formatForensicCurrency(m.ganhos)}) and the DAC7 value reported to the Tax Authority (${formatForensicCurrency(m.dac7Total)}), as the identified divergence is materially higher. If improperly included in the DAC7 gross income, the taxpayer will have been prejudiced in the determination of their tax base.
+
+## STRATEGIC QUESTIONNAIRE FOR THE LAWYER — FORENSIC CROSS-EXAMINATION
+Were the commission-exempt amounts (Campaigns + Tips + Tolls = €451.15) improperly included in the calculation of gross income for SAF-T / DAC7 reporting purposes? If so, why was a presumption of income applied to amounts that, under the platform's Terms and Conditions for TVDE, are not subject to retention or commission by the platform?
+[Legal Basis] Platform Terms and Conditions - 0% Commission on tips and campaigns - Art. 125 Criminal Procedure Code (admissibility of evidence) - Art. 103 RGIT (Tax Fraud) - DAC7 / Directive (EU) 2021/514 - Tax and Customs Authority`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 32. QUESTÕES PARA CONTRADITÓRIO (Q1) ==========
-                { text: "QUESTÕES PARA O CONTRADITÓRIO — PROTOCOLO UNIFED-GOLD", style: 'h2' },
-                { text: `As seguintes questões, elaboradas com fundamento técnico-jurídica, destinam-se a ser formuladas ao representante legal da plataforma em sede de audiência de discussão e julgamento, nos termos do Art. 327.º do CPP (Contraditório). Cada questão sustenta-se em evidência digital auditada e documentada no presente relatório forense.
+                { text: isPT ? "QUESTÕES PARA O CONTRADITÓRIO — PROTOCOLO UNIFED-GOLD" : "QUESTIONS FOR CROSS-EXAMINATION — UNIFED-GOLD PROTOCOL", style: 'h2' },
+                { text: isPT ? `As seguintes questões, elaboradas com fundamento técnico-jurídica, destinam-se a ser formuladas ao representante legal da plataforma em sede de audiência de discussão e julgamento, nos termos do Art. 327.º do CPP (Contraditório). Cada questão sustenta-se em evidência digital auditada e documentada no presente relatório forense.
 
 Q1 — DESALINHAMENTO TEMPORAL (Pagamento Semanal vs Faturação Mensal):
 "Pode a plataforma explicar a impossibilidade de reconciliação bancária direta (cruzamento 1:1) resultante do desalinhamento temporal entre o processamento de pagamentos — efectuado semanalmente por transferência bancária — e a emissão dos documentos de reporte fiscal, efectuada em formato mensal agregado? Esta assimetria temporal, detetada pelo sistema UNIFED-PROBATUM, impede o parceiro de auditar as transferências recebidas contra o documento de reporte correspondente, constituindo indício de ofuscação deliberada, nos termos do Art. 103.º do RGIT."
@@ -2453,17 +2692,38 @@ Q1 — DESALINHAMENTO TEMPORAL (Pagamento Semanal vs Faturação Mensal):
 Q2 — INCLUSÃO DE FLUXOS NÃO SUJEITOS A COMISSÃO NO DAC7:
 "Qual o fundamento legal e contratual que suporta a inclusão de fluxos financeiros não sujeitos a comissão — gorjetas, campanhas e portagens — no valor bruto reportado via DAC7? Embora a Lei TVDE regule a atividade, a isenção de comissão sobre estes valores está vinculada estritamente aos Termos e Condições da Plataforma. A inclusão destes montantes no reporte da AT, sem a devida segregação de fluxos não remuneratórios (cfr. Art. 36.º, n.º 11 do CIVA), pode constituir uma deficiência na extração de dados do sistema de informação da plataforma, resultando num reporte fiscalmente inexato."
 
-Fundamentação Legal: Art. 327.º CPP (Contraditório) · Art. 125.º CPP (Admissibilidade de Prova) · Art. 103.º/104.º RGIT (Fraude Fiscal/Qualificada) · Art. 36.º, n.º 11 CIVA · Decreto-Lei n.º 28/2019 (SAF-T/DAC7) · Diretiva (UE) 2021/514 (DAC7) · Termos e Condições da Plataforma · ISO/IEC 27037:2012 (prova digital)`, style: 'normal', margin: [0, 0, 0, 15] },
+Fundamentação Legal: Art. 327.º CPP (Contraditório) · Art. 125.º CPP (Admissibilidade de Prova) · Art. 103.º/104.º RGIT (Fraude Fiscal/Qualificada) · Art. 36.º, n.º 11 CIVA · Decreto-Lei n.º 28/2019 (SAF-T/DAC7) · Diretiva (UE) 2021/514 (DAC7) · Termos e Condições da Plataforma · ISO/IEC 27037:2012 (prova digital)` : `The following questions, prepared on technical-legal grounds, are intended to be put to the platform's legal representative during the trial hearing, pursuant to Art. 327 of the Criminal Procedure Code (Cross-Examination). Each question is supported by digital evidence audited and documented in this forensic report.
+
+Q1 — TEMPORAL MISMATCH (Weekly Payment vs Monthly Invoicing):
+"Can the platform explain the impossibility of direct bank reconciliation (1:1 matching) resulting from the temporal mismatch between payment processing — carried out weekly by bank transfer — and the issuance of tax reporting documents, carried out in aggregated monthly format? This temporal asymmetry, detected by the UNIFED-PROBATUM system, prevents the partner from auditing received transfers against the corresponding reporting document, constituting evidence of deliberate obfuscation, under Art. 103 of the RGIT."
+
+Q2 — INCLUSION OF COMMISSION-EXEMPT FLOWS IN DAC7:
+"What is the legal and contractual basis supporting the inclusion of financial flows not subject to commission — tips, campaigns and tolls — in the gross amount reported via DAC7? Although the TVDE Law regulates the activity, the commission exemption on these amounts is strictly bound by the Platform's Terms and Conditions. The inclusion of these amounts in the Tax Authority report, without proper segregation of non-remunerative flows (cf. Art. 36(11) VAT Code), may constitute a deficiency in the platform's data extraction from its information system, resulting in a tax report that is materially inaccurate."
+
+Legal Basis: Art. 327 Criminal Procedure Code (Cross-Examination) · Art. 125 Criminal Procedure Code (Admissibility of Evidence) · Art. 103/104 RGIT (Tax Fraud/Qualified) · Art. 36(11) VAT Code · Decree-Law No. 28/2019 (SAF-T/DAC7) · Directive (EU) 2021/514 (DAC7) · Platform Terms and Conditions · ISO/IEC 27037:2012 (digital evidence)`,
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // ========== 33. DECLARAÇÃO DE COMPROMISSO E ASSINATURA ==========
-                { text: "DECLARAÇÃO DE COMPROMISSO DE HONRA (ART. 153.º CPP)", style: 'h2' },
-                { text: "O presente relatório é composto por múltiplas páginas, todas rubricadas digitalmente e seladas com o Master Hash de integridade:\n\n" + m.masterHash + "\n\nconstituindo Prova Digital Material inalterável para efeitos judiciais, sob égide do Art. 103.º do RGIT, normas ISO/IEC 27037 e Decreto-Lei n.º 28/2019.", style: 'normal', margin: [0, 0, 0, 10] },
-                { text: "ADMISSIBILIDADE DA PROVA DIGITAL — Art. 125.º CPP", style: 'h2', margin: [0, 10, 0, 5] },
-                { text: "São admissíveis como meios de prova todos os meios não proibidos por lei (Art. 125.º do Código de Processo Penal Português). O presente relatório técnico-jurídica constitui Prova Digital Material, produzida com recurso a metodologia forense certificada (ISO/IEC 27037:2012), integridade criptográfica SHA-256 e cadeia de custódia documentada, sendo admissível perante as Instâncias Judiciais Competentes nos termos do Art. 125.º CPP e do Art. 32.º da Constituição da República Portuguesa (Garantias de Defesa). A omissão de IVA apurada fundamenta a qualificação do facto nos termos dos Art. 103.º (Fraude Fiscal) e Art. 104.º (Fraude Fiscal Qualificada) do RGIT.", style: 'normal', margin: [0, 0, 0, 10] },
-                { text: "SELAGEM TEMPORAL RFC 3161 — DATA CERTA eIDAS", style: 'h2', margin: [0, 10, 0, 5] },
-                { text: "Documento selado temporalmente via Protocolo RFC 3161 (TSA: FreeTSA.org), garantindo Data Certa eIDAS. Os selos .tsr individuais de cada evidência encontram-se arquivados na pasta 03_REPOSITORIO_OTS.", style: 'normal', margin: [0, 0, 0, 10] },
-                { text: "CONSULTOR TÉCNICO — COMPROMISSO DE HONRA E SALVAGUARDA (ART. 153.º E 155.º CPP)", style: 'h2', margin: [0, 10, 0, 5] },
-                { text: "Identificação:\n* Nome: Técnico Forense\n* Cargo: Analista e Consultor Forense Independente | Big Data Analytics\n* Estatuto: Consultor Técnico Independente (Art. 155.º do CPP). Atuação em conformidade com o regime de liberdade de prova e consultoria técnica documental.\n\nNOTA DE SALVAGUARDA JURÍDICA E ÂMBITO: As conclusões constantes neste documento infraestruturam-se exclusivamente nos artefactos e elementos documentais disponibilizados pelo solicitante. O presente parecer constitui uma análise técnica independente de natureza consultiva e prova documental assistencial, não substituindo, para quaisquer efeitos processuais, a realização de uma consultoria técnica oficial ordenada pela autoridade judiciária competente.\n\nAnálise material baseada em dados estruturados fornecidos; o escopo limita-se à integridade financeira e documental dos ativos digitais apresentados, conforme Art. 125.º CPP.\n\nDECLARAÇÃO DE COMPROMISSO: Declaro, sob compromisso de honra, que o presente parecer técnico foi elaborado na qualidade de Consultor Técnico Independente, assumindo estritamente os deveres de independência, objetividade e imparcialidade previstos no Artigo 153.º do Código de Processo Penal Português. Certifico que a metodologia aplicada (Baseada em ISRS 4400 e boas práticas de Digital Forensics) é reprodutível e que os resultados aqui vertidos traduzem fielmente a análise técnica realizada sobre o lote de dados fornecido.\n\nData: " + dataEmissao + "\n\nAssinatura do Técnico Responsável Pela Análise\n\n[ UNIFED - PROBATUM CERTIFIED - ANALISTA E CONSULTOR FORENSE - v1.0-COMMERCIAL-LITIGATION ]\nEstudo de Viabilidade - Consultoria Forense Especializada - Uso restrito a mandato jurídico autorizado\nFundamentação: RGIT Art. 103.º (Fraude Fiscal) - Art. 104.º (Fraude Qualificada) - CRP Art. 32.º - CPP Art. 125.º", style: 'normal', margin: [0, 0, 0, 15] },
+                { text: isPT ? "DECLARAÇÃO DE COMPROMISSO DE HONRA (ART. 153.º CPP)" : "DECLARATION OF COMMITMENT OF HONOR (ART. 153 CRIMINAL PROCEDURE CODE)", style: 'h2' },
+                { text: isPT
+                    ? "O presente relatório é composto por múltiplas páginas, todas rubricadas digitalmente e seladas com o Master Hash de integridade:\n\n" + m.masterHash + "\n\nconstituindo Prova Digital Material inalterável para efeitos judiciais, sob égide do Art. 103.º do RGIT, normas ISO/IEC 27037 e Decreto-Lei n.º 28/2019."
+                    : "This report consists of multiple pages, all digitally initialed and sealed with the integrity Master Hash:\n\n" + m.masterHash + "\n\nconstituting unalterable Material Digital Evidence for judicial purposes, under the auspices of Art. 103 of the RGIT, ISO/IEC 27037 standards, and Decree-Law No. 28/2019.",
+                    style: 'normal', margin: [0, 0, 0, 10] },
+                { text: isPT ? "ADMISSIBILIDADE DA PROVA DIGITAL — Art. 125.º CPP" : "ADMISSIBILITY OF DIGITAL EVIDENCE — Art. 125 Criminal Procedure Code", style: 'h2', margin: [0, 10, 0, 5] },
+                { text: isPT
+                    ? "São admissíveis como meios de prova todos os meios não proibidos por lei (Art. 125.º do Código de Processo Penal Português). O presente relatório técnico-jurídica constitui Prova Digital Material, produzida com recurso a metodologia forense certificada (ISO/IEC 27037:2012), integridade criptográfica SHA-256 e cadeia de custódia documentada, sendo admissível perante as Instâncias Judiciais Competentes nos termos do Art. 125.º CPP e do Art. 32.º da Constituição da República Portuguesa (Garantias de Defesa). A omissão de IVA apurada fundamenta a qualificação do facto nos termos dos Art. 103.º (Fraude Fiscal) e Art. 104.º (Fraude Fiscal Qualificada) do RGIT."
+                    : "All means not prohibited by law are admissible as evidence (Art. 125 of the Portuguese Criminal Procedure Code). This technical-legal report constitutes Material Digital Evidence, produced using certified forensic methodology (ISO/IEC 27037:2012), SHA-256 cryptographic integrity and documented chain of custody, and is admissible before the Competent Judicial Bodies under Art. 125 of the Criminal Procedure Code and Art. 32 of the Portuguese Constitution (Defense Guarantees). The identified VAT omission supports the legal qualification of the facts under Art. 103 (Tax Fraud) and Art. 104 (Qualified Tax Fraud) of the RGIT.",
+                    style: 'normal', margin: [0, 0, 0, 10] },
+                { text: isPT ? "SELAGEM TEMPORAL RFC 3161 — DATA CERTA eIDAS" : "RFC 3161 TIME SEALING — eIDAS CERTAIN DATE", style: 'h2', margin: [0, 10, 0, 5] },
+                { text: isPT
+                    ? "Documento selado temporalmente via Protocolo RFC 3161 (TSA: FreeTSA.org), garantindo Data Certa eIDAS. Os selos .tsr individuais de cada evidência encontram-se arquivados na pasta 03_REPOSITORIO_OTS."
+                    : "Document time-sealed via the RFC 3161 Protocol (TSA: FreeTSA.org), ensuring an eIDAS Certain Date. The individual .tsr seals for each piece of evidence are archived in the 03_REPOSITORIO_OTS folder.",
+                    style: 'normal', margin: [0, 0, 0, 10] },
+                { text: isPT ? "CONSULTOR TÉCNICO — COMPROMISSO DE HONRA E SALVAGUARDA (ART. 153.º E 155.º CPP)" : "TECHNICAL CONSULTANT — COMMITMENT OF HONOR AND SAFEGUARD (ART. 153 AND 155 CRIMINAL PROCEDURE CODE)", style: 'h2', margin: [0, 10, 0, 5] },
+                { text: isPT
+                    ? "Identificação:\n* Nome: Técnico Forense\n* Cargo: Analista e Consultor Forense Independente | Big Data Analytics\n* Estatuto: Consultor Técnico Independente (Art. 155.º do CPP). Atuação em conformidade com o regime de liberdade de prova e consultoria técnica documental.\n\nNOTA DE SALVAGUARDA JURÍDICA E ÂMBITO: As conclusões constantes neste documento infraestruturam-se exclusivamente nos artefactos e elementos documentais disponibilizados pelo solicitante. O presente parecer constitui uma análise técnica independente de natureza consultiva e prova documental assistencial, não substituindo, para quaisquer efeitos processuais, a realização de uma consultoria técnica oficial ordenada pela autoridade judiciária competente.\n\nAnálise material baseada em dados estruturados fornecidos; o escopo limita-se à integridade financeira e documental dos ativos digitais apresentados, conforme Art. 125.º CPP.\n\nDECLARAÇÃO DE COMPROMISSO: Declaro, sob compromisso de honra, que o presente parecer técnico foi elaborado na qualidade de Consultor Técnico Independente, assumindo estritamente os deveres de independência, objetividade e imparcialidade previstos no Artigo 153.º do Código de Processo Penal Português. Certifico que a metodologia aplicada (Baseada em ISRS 4400 e boas práticas de Digital Forensics) é reprodutível e que os resultados aqui vertidos traduzem fielmente a análise técnica realizada sobre o lote de dados fornecido.\n\nData: " + dataEmissao + "\n\nAssinatura do Técnico Responsável Pela Análise\n\n[ UNIFED - PROBATUM CERTIFIED - ANALISTA E CONSULTOR FORENSE - v1.0-COMMERCIAL-LITIGATION ]\nEstudo de Viabilidade - Consultoria Forense Especializada - Uso restrito a mandato jurídico autorizado\nFundamentação: RGIT Art. 103.º (Fraude Fiscal) - Art. 104.º (Fraude Qualificada) - CRP Art. 32.º - CPP Art. 125.º"
+                    : "Identification:\n* Name: Forensic Technician\n* Role: Independent Forensic Analyst and Consultant | Big Data Analytics\n* Status: Independent Technical Consultant (Art. 155 Criminal Procedure Code). Activity carried out in accordance with the regime of freedom of evidence and documentary technical consultancy.\n\nLEGAL SAFEGUARD AND SCOPE NOTE: The conclusions set out in this document are based exclusively on the artifacts and documentary elements provided by the requesting party. This opinion constitutes an independent technical analysis of an advisory nature and assistive documentary evidence, and does not replace, for any procedural purposes, the conducting of an official technical consultation ordered by the competent judicial authority.\n\nMaterial analysis based on the structured data provided; the scope is limited to the financial and documentary integrity of the digital assets presented, pursuant to Art. 125 Criminal Procedure Code.\n\nDECLARATION OF COMMITMENT: I declare, under commitment of honor, that this technical opinion was prepared in the capacity of Independent Technical Consultant, strictly assuming the duties of independence, objectivity and impartiality set out in Article 153 of the Portuguese Criminal Procedure Code. I certify that the methodology applied (based on ISRS 4400 and Digital Forensics best practices) is reproducible and that the results presented herein faithfully reflect the technical analysis performed on the data set provided.\n\nDate: " + dataEmissao + "\n\nSignature of the Technician Responsible for the Analysis\n\n[ UNIFED - PROBATUM CERTIFIED - FORENSIC ANALYST AND CONSULTANT - v1.0-COMMERCIAL-LITIGATION ]\nFeasibility Study - Specialized Forensic Consultancy - Use restricted to authorized legal mandate\nLegal Basis: RGIT Art. 103 (Tax Fraud) - Art. 104 (Qualified Fraud) - PT Constitution Art. 32 - Criminal Procedure Code Art. 125",
+                    style: 'normal', margin: [0, 0, 0, 15] },
 
                 // QR Code final (se disponível)
                 ...(qrCodeImg ? [
@@ -2559,9 +2819,11 @@ Fundamentação Legal: Art. 327.º CPP (Contraditório) · Art. 125.º CPP (Admi
             pageMargins: [40, 85, 40, 60],
             header: function(currentPage, pageCount) {
                 var sid = (window.UNIFEDSystem && window.UNIFEDSystem.sessionId) || 'DEMO';
+                var _hLang = window.currentLang || 'pt';
+                var _hIsPT = _hLang === 'pt';
                 return {
                     columns: [
-                        { text: 'SESSÃO: ' + sid + ' | ANEXO DE CADEIA DE CUSTÓDIA', fontSize: 7, color: '#1e3a8a', alignment: 'left', margin: [40, 25, 0, 0] },
+                        { text: (_hIsPT ? 'SESSÃO: ' : 'SESSION: ') + sid + (_hIsPT ? ' | ANEXO DE CADEIA DE CUSTÓDIA' : ' | CHAIN OF CUSTODY ANNEX'), fontSize: 7, color: '#1e3a8a', alignment: 'left', margin: [40, 25, 0, 0] },
                         { text: 'ISO/IEC 27037:2012 · eIDAS 2.0 · RFC 3161', fontSize: 7, color: '#64748b', alignment: 'right', margin: [0, 25, 40, 0] }
                     ]
                 };
@@ -2580,8 +2842,8 @@ Fundamentação Legal: Art. 327.º CPP (Contraditório) · Art. 125.º CPP (Admi
                 return {
                     stack: [
                         { canvas: [{ type: 'line', x1: 40, y1: 0, x2: 555, y2: 0, lineWidth: 0.75, lineColor: '#1e3a8a' }], margin: [0, -12, 0, 8] },
-                        { text: `Página ${currentPage} de ${pageCount}`, style: 'footerLine1', alignment: 'center' },
-                        { text: `Master Hash SHA-256: ${m.masterHash || 'INDISPONÍVEL'}${safeguardText}`, style: 'footerLine2', alignment: 'center' }
+                        { text: (isPT ? `Página ${currentPage} de ${pageCount}` : `Page ${currentPage} of ${pageCount}`), style: 'footerLine1', alignment: 'center' },
+                        { text: `${isPT ? 'Master Hash SHA-256' : 'SHA-256 Master Hash'}: ${m.masterHash || (isPT ? 'INDISPONÍVEL' : 'UNAVAILABLE')}${safeguardText}`, style: 'footerLine2', alignment: 'center' }
                     ],
                     margin: [0, 0, 0, 0]
                 };

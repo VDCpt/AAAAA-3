@@ -621,7 +621,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                     </button>
                     <div class="counters-compact">
                         <div class="counter-item-compact"><span id="controlCountCompact" class="counter-value-compact">0</span><span class="counter-label-compact">CTRL</span></div>
-                        <div class="counter-item-compact"><span id="saftCountCompact" class="counter-value-compact">0</span><span class="counter-label-compact">SAF-T</span></div>
+                        <div class="counter-item-compact"><span id="saftCountCompact" class="counter-value-compact">0</span><span class="counter-label-compact" data-i18n-ignore>SAF-T</span></div>
                         <div class="counter-item-compact"><span id="invoiceCountCompact" class="counter-value-compact">0</span><span class="counter-label-compact">FAT</span></div>
                         <div class="counter-item-compact"><span id="statementCountCompact" class="counter-value-compact">0</span><span class="counter-label-compact">EXT</span></div>
                         <div class="counter-item-compact"><span id="dac7CountCompact" class="counter-value-compact">0</span><span class="counter-label-compact">DAC7</span></div>
@@ -677,7 +677,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                             <i class="fas fa-file-code"></i> MÓDULO SAF-T (EXTRAÇÃO)
                         </h4>
                         <div class="module-values grid-3">
-                            <div class="kpi-card highlight"><h4 id="saftIliquidoLabel">Valor Ilíquido Total</h4><p id="saftIliquidoValue">0,00 €</p><span class="file-source-badge" id="saftIliquidoSource"></span></div>
+                            <div class="kpi-card highlight"><h4 id="saftIliquidoLabel" data-pt="Valor Ilíquido Total" data-en="Total Net Value">Valor Ilíquido Total</h4><p id="saftIliquidoValue">0,00 €</p><span class="file-source-badge" id="saftIliquidoSource"></span></div>
                             <div class="kpi-card highlight"><h4 id="saftIvaLabel">Total IVA</h4><p id="saftIvaValue">0,00 €</p><span class="file-source-badge" id="saftIvaSource"></span></div>
                             <div class="kpi-card highlight"><h4 id="saftBrutoLabel">Valor Bruto Total</h4><p id="saftBrutoValue">0,00 €</p><span class="file-source-badge" id="saftBrutoSource"></span></div>
                         </div>
@@ -691,8 +691,8 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                         <div class="module-values">
                             <div class="grid-3" style="margin-bottom:0.75rem;">
                                 <div class="kpi-card highlight"><h4 id="stmtGanhosLabel">Ganhos</h4><p id="stmtGanhosValue">0,00 €</p><span class="file-source-badge" id="stmtGanhosSource"></span></div>
-                                <div class="kpi-card"><h4 id="stmtDespesasLabel">Despesas/Comissões</h4><p id="stmtDespesasValue">0,00 €</p><span class="file-source-badge" id="stmtDespesasSource"></span></div>
-                                <div class="kpi-card"><h4 id="stmtGanhosLiquidosLabel">Ganhos Líquidos</h4><p id="stmtGanhosLiquidosValue">0,00 €</p><span class="file-source-badge" id="stmtGanhosLiquidosSource"></span></div>
+                                <div class="kpi-card"><h4 id="stmtDespesasLabel" data-pt="Despesas/Comissões" data-en="Expenses/Commissions">Despesas/Comissões</h4><p id="stmtDespesasValue">0,00 €</p><span class="file-source-badge" id="stmtDespesasSource"></span></div>
+                                <div class="kpi-card"><h4 id="stmtGanhosLiquidosLabel" data-pt="Ganhos Líquidos" data-en="Net Earnings">Ganhos Líquidos</h4><p id="stmtGanhosLiquidosValue">0,00 €</p><span class="file-source-badge" id="stmtGanhosLiquidosSource"></span></div>
                             </div>
                         </div>
                     </div>
@@ -716,17 +716,17 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
                     <div class="stat-card warning" id="revenueGapCard" style="display:none;">
                         <h4><i class="fas fa-chart-line"></i> <span id="revenueGapTitle" data-pt="GAP SAF-T vs GANHOS" data-en="SAF-T vs EARNINGS GAP">GAP SAF-T vs GANHOS</span></h4>
                         <p id="revenueGapValue">0,00 €</p>
-                        <span class="stat-desc" id="revenueGapDesc">SAF-T Bruto vs Ganhos</span>
+                        <span class="stat-desc" id="revenueGapDesc" data-pt="SAF-T Bruto vs Ganhos" data-en="SAF-T Gross vs Earnings">SAF-T Bruto vs Ganhos</span>
                     </div>
                     <div class="stat-card alert" id="expenseGapCard" style="display:none;">
-                        <h4><i class="fas fa-percentage"></i> <span id="expenseGapTitle">OMISSÃO DE CUSTOS/IVA</span></h4>
+                        <h4><i class="fas fa-percentage"></i> <span id="expenseGapTitle" data-pt="OMISSÃO DE CUSTOS/IVA" data-en="COST/VAT OMISSION">OMISSÃO DE CUSTOS/IVA</span></h4>
                         <p id="expenseGapValue">0,00 €</p>
-                        <span class="stat-desc" id="expenseGapDesc">Despesas/Comissões (Extrato) vs Faturadas (BTF)</span>
+                        <span class="stat-desc" id="expenseGapDesc" data-pt="Despesas/Comissões (Extrato) vs Faturadas (BTF)" data-en="Expenses/Commissions (Statement) vs Invoiced (BTF)">Despesas/Comissões (Extrato) vs Faturadas (BTF)</span>
                     </div>
                     <div class="stat-card alert" id="omissaoDespesasPctCard" style="display:none;">
                         <h4><i class="fas fa-percent"></i> <span id="omissaoDespesasPctTitle">Percentagem Cobrada Pela Plataforma</span></h4>
                         <p id="omissaoDespesasPctValue">0,00 %</p>
-                        <span class="stat-desc" id="omissaoDespesasPctDesc">(Despesas/Comissões / Ganhos Extrato) × 100</span>
+                        <span class="stat-desc" id="omissaoDespesasPctDesc" data-pt="(Despesas/Comissões / Ganhos Extrato) × 100" data-en="(Expenses/Commissions / Statement Earnings) × 100">(Despesas/Comissões / Ganhos Extrato) × 100</span>
                     </div>
                 </div>
 
