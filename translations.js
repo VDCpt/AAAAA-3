@@ -7,7 +7,7 @@
  *
  * RETIFICAÇÕES APLICADAS (v1.0-NACIONALIZADO):
  * REQ-04a: Nacionalização Jurisprudencial – termos PT-PT alinhados com DL 28/2019,
- *          RGIT, Código de Processo Penal (arts. 125.º e 327.º).
+ *          Normas de Conformidade Fiscal, Código de Processo Penal (arts. 125.º e 327.º).
  * REQ-04b: Encapsulamento do Inglês – idioma padrão = 'pt', tradução EN relegada
  *          a espelho passivo, activável apenas via flag manual na UI.
  * REQ-04c: deepTreeWalkSanitizePlatforms optimizada – parâmetro 'inPlace' evita
@@ -61,13 +61,15 @@ window.UNIFED_TRANSLATIONS.DICTIONARY = {
     'top3_axis_label': { 'pt': 'Eixo', 'en': 'Axis' },
 
     // ════════════════════════════════════════════════════════════════════════
-    // EIXOS DO QUESTIONÁRIO (alinhados com RGIT e CPP)
+    // EIXOS DO QUESTIONÁRIO (alinhados com RGIT, DL 28/2019 e CPP)
     // ════════════════════════════════════════════════════════════════════════
     'questionnaire_axis_a': { 'pt': 'Eixo A: Cadeia de Custódia (art. 327.º CPP e ISO 27037)', 'en': 'Axis A: Chain of Custody (CPP art. 327 & ISO 27037)' },
     'questionnaire_axis_b': { 'pt': 'Eixo B: Triangulação DAC7 vs SAF-T (DL 28/2019)', 'en': 'Axis B: DAC7 vs SAF-T Triangulation (DL 28/2019)' },
     'questionnaire_axis_c': { 'pt': 'Eixo C: Nexus‑Zero / Apropriação Indevida (art. 125.º CPP)', 'en': 'Axis C: Nexus‑Zero / Undue Appropriation (CPP art. 125)' },
-    'questionnaire_axis_d': { 'pt': 'Eixo D: Algoritmo & Falibilidade (RGIT)', 'en': 'Axis D: Algorithm & Fallibility (RGIT)' },
-    'questionnaire_axis_e': { 'pt': 'Eixo E: Responsabilidade Tributária (RGIT/LGT)', 'en': 'Axis E: Tax Liability (RGIT/LGT)' },
+    'questionnaire_axis_d': { 'pt': 'Eixo D: Algoritmo & Falibilidade (art. 103.º e 104.º RGIT)', 'en': 'Axis D: Algorithm & Fallibility (RGIT art. 103 & 104)' },
+    'questionnaire_axis_e': { 'pt': 'Eixo E: Responsabilidade Tributária (art. 103.º e 114.º RGIT / LGT)', 'en': 'Axis E: Tax Liability (RGIT art. 103 & 114 / LGT)' },
+    // RET-TRANS-RGIT: chave de conformidade legal para PDFs (Fraude Fiscal e Qualificada)
+    'pdfLegalRGIT': { 'pt': 'Art. 103.º e 104.º do RGIT — Fraude Fiscal e Fraude Fiscal Qualificada', 'en': 'RGIT Art. 103 & 104 — Tax Fraud and Qualified Tax Fraud' },
 
     // ════════════════════════════════════════════════════════════════════════
     // MERKLE TREE & eIDAS
@@ -413,18 +415,18 @@ window.initLanguageSwitcher = function() {
     // Executa a actualização inicial
     _updateUI();
 
-    // MutationObserver com throttle de 50ms (UNIFED-TRANS-RET-10: reduz re-renders
-    // de UI dinâmica; 150ms anterior causava glitch visível em alternância PT/EN rápida)
+    // MutationObserver com throttle ajustado para 150ms (RETIFICAÇÃO R24: reduz re-renders)
     let _updateUITimer = null;
     const observer = new MutationObserver(() => {
-        if (window._isSyncing || window._isTranslating) return;
-        clearTimeout(_updateUITimer);
-        _updateUITimer = setTimeout(() => {
-            if (window.currentLang) window.translateAll();
-        }, 50);
+        if(window._isTranslating) return;
+        window._isTranslating = true;
+        setTimeout(() => {
+            if(window.currentLang) window.translateAll();
+            window._isTranslating = false;
+        }, 150); // R24: 50ms → 150ms
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    console.log('[I18N] MutationObserver activo (throttle: 50ms, guard: _isSyncing/_isTranslating).');
+    console.log('[I18N] MutationObserver activo com flag _isTranslating.');
 
 
     // Expor função de tradução síncrona para uso externo (ex: após _syncPureDashboard)

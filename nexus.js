@@ -457,16 +457,16 @@
 
     var _JURISPRUDENCE_KB = {
         rgit103: {
-            artigo: 'Art. 103.o RGIT — Omissão de Faturação',
+            artigo: 'Art. 103.º RGIT — Fraude Fiscal (Omissão de Faturação)',
             texto: 'Constituem omissão de faturação as condutas ilegitimas tipificadas no presente artigo que visem a nao liquidacao, entrega ou pagamento da prestacao tributaria ou a obtencao indevida de beneficios fiscais, reembolsos ou outras vantagens patrimoniais susceptiveis de causarem diminuicao das receitas tributarias. Pena de prisao ate 3 anos.'
         },
         rgit104: {
-            artigo: 'Art. 104.o RGIT — Irregularidade Comercial Agravada',
+            artigo: 'Art. 104.º RGIT — Fraude Fiscal Qualificada (Irregularidade Agravada)',
             texto: 'Os factos previstos no artigo anterior sao puniveis com prisao de 1 a 5 anos para as pessoas singulares e multa de 240 a 1200 dias para as pessoas colectivas quando a vantagem patrimonial ilegitima for de valor superior a (euro) 15 000 ou quando envolva a utilizacao de meios fraudulentos, nomeadamente, (i) falsificacao ou vicacao de livros de contabilidade, (ii) destruicao, ocultacao, dandificacao, alteracao ou substituicao de elementos fiscalmente relevantes, (iii) subscricao de documentos fiscalmente relevantes contendo informacao falsa.'
         },
         civa78: {
             artigo: 'Art. 78.o CIVA — Regularizacoes',
-            texto: 'Os sujeitos passivos podem proceder a deducao do imposto que incidiu sobre o montante total ou parcial de dividas resultantes de operacoes tributaveis. A regularizacao do imposto e obrigatoria quando a base tributavel de operacoes tributaveis for reduzida por qualquer motivo, quando existirem anulacoes totais ou parciais das operacoes. A nao regularizacao da operacao omitida constitui infraction adicional nos termos do Art. 114.o RGIT.'
+            texto: 'Os sujeitos passivos podem proceder a deducao do imposto que incidiu sobre o montante total ou parcial de dividas resultantes de operacoes tributaveis. A regularizacao do imposto e obrigatoria quando a base tributavel de operacoes tributaveis for reduzida por qualquer motivo, quando existirem anulacoes totais ou parciais das operacoes. A nao regularizacao da operacao omitida constitui infraction adicional nos termos do Art. 114.º RGIT.'
         },
         civa2: {
             artigo: 'Art. 2.o CIVA — Incidencia Subjectiva',
@@ -483,7 +483,7 @@
             proc: 'Proc. 01080/17.3BELRS',
             tribunal: 'Supremo Tribunal Administrativo — 2.a Seccao',
             data: '27.09.2023',
-            sumario: 'A plataforma falha no reporte da Contraprestacao Total (conforme Art. 8.o-AC da Diretiva (UE) 2021/514 (DAC7)), omitindo fluxos de Taxas de Cancelamento, Portagens e Suplementos que integram a realidade economica creditada ao parceiro, gerando uma divergencia material entre o reporte DAC7 e a faturacao emitida sob monopolio (Art. 36.o n.o 11 CIVA). Esta omissao constitui indicio qualificado nos termos do Art. 103.o RGIT. A plataforma digital, enquanto sujeito passivo por substituicao, partilha a responsabilidade solidaria pela liquidacao omitida (Art. 22.o LGT).'
+            sumario: 'A plataforma falha no reporte da Contraprestacao Total (conforme Art. 8.o-AC da Diretiva (UE) 2021/514 (DAC7)), omitindo fluxos de Taxas de Cancelamento, Portagens e Suplementos que integram a realidade economica creditada ao parceiro, gerando uma divergencia material entre o reporte DAC7 e a faturacao emitida sob monopolio (Art. 36.o n.o 11 CIVA). Esta omissao constitui indicio qualificado nos termos do Art. 103.º RGIT. A plataforma digital, enquanto sujeito passivo por substituicao, partilha a responsabilidade solidaria pela liquidacao omitida (Art. 22.o LGT).'
         },
         {
             proc: 'Proc. 0456/19.8BEPRT',
@@ -501,7 +501,7 @@
             proc: 'Proc. 0891/20.0BESNT',
             tribunal: 'Supremo Tribunal Administrativo — 2.a Seccao',
             data: '22.05.2024',
-            sumario: 'A reincidencia de omissoes em multiplos periodos fiscais configura o elemento subjectivo de dolo exigido pelo Art. 104.o n.o 2, al. a) RGIT para a qualificacao de omissão de faturação. O Score de Persistencia Algoritmico (SPA) apurado em relatorio técnico-jurídica constitui elemento probatorio autonomo do padrao doloso sistematico.'
+            sumario: 'A reincidencia de omissoes em multiplos periodos fiscais configura o elemento subjectivo de dolo exigido pelo Art. 104.º, n.º 2, al. a) RGIT para a qualificacao de omissão de faturação. O Score de Persistencia Algoritmico (SPA) apurado em relatorio técnico-jurídica constitui elemento probatorio autonomo do padrao doloso sistematico.'
         },
         {
             proc: 'Proc. 01234/22.7BELRS',
@@ -640,7 +640,7 @@
             : 'VI.3 · NOTA DE QUALIFICAÇÃO JURÍDICA NEXUS';
         var vi3Body = lang === 'en'
             ? 'The combination of identified discrepancies with the documented pattern of systematicity establishes, prima facie, ' +
-              'the objective element of the aggravated commercial irregularity offense (Art. 104 RGIT), ' +
+              'the objective element of the aggravated commercial irregularity offense (Art. 104.º RGIT), ' +
               'by cumulative verification of: (i) omission of taxable base exceeding the EUR 15,000 threshold, ' +
               '(ii) use of an opaque invoicing mechanism (Art. 36(11) CIVA — third-party invoicing), and ' +
               '(iii) absence of voluntary regularization under Art. 78 CIVA. ' +
@@ -1067,7 +1067,7 @@ function _injectForecastIntoChart(forecast, historicLen) {
                 '<strong style="color:#0EA5E9">' + dict.methodology + '<strong style="color:#0EA5E9">' + forecast.confidence + '</strong>. ' +
                 dict.historicMonths + '<strong>' + forecast.historicN + '</strong> ' + dict.monthsLabel + '. ' +
                 dict.thisPanelDoesNotAlter + ' ' +
-                'Art. 103º e 104º RGIT · ISO/IEC 27037:2012' +
+                'Art. 103.º e 104.º RGIT · ISO/IEC 27037:2012' +
             '</div>';
 
         var modalBody = modal.querySelector('.modal-body');
@@ -1796,11 +1796,9 @@ window.generateTemporalChartImage = async function generateTemporalChartImage(mo
                 });
             }
 
-            var _lang = window.currentLang || 'pt';
-            var _isEN = (_lang === 'en');
             var datasets = [
                 {
-                    label: _isEN ? 'Monthly Omission (€)' : 'Omissão Mensal (€)',
+                    label: 'Omissão Mensal (€)',
                     data: discSeries,
                     borderColor: '#00E5FF',
                     backgroundColor: 'rgba(0,229,255,0.08)',
@@ -1810,7 +1808,7 @@ window.generateTemporalChartImage = async function generateTemporalChartImage(mo
                     fill: true
                 },
                 {
-                    label: _isEN ? 'Missing VAT (€)' : 'IVA em Falta (€)',
+                    label: 'IVA em Falta (€)',
                     data: ivaSeries,
                     borderColor: '#F59E0B',
                     backgroundColor: 'rgba(245,158,11,0.06)',
@@ -1825,7 +1823,7 @@ window.generateTemporalChartImage = async function generateTemporalChartImage(mo
                 // Padding nulo para alinhar previsão após os dados históricos
                 var nullPad = discSeries.map(function(){ return null; });
                 datasets.push({
-                    label: _isEN ? '6M Forecast — Omission (Nexus ATF)' : 'Previsão 6M — Omissão (Nexus ATF)',
+                    label: 'Previsão 6M — Omissão (Nexus ATF)',
                     data: nullPad.concat(forecast.discSeries),
                     borderColor: '#EF4444',
                     backgroundColor: 'rgba(239,68,68,0.08)',
@@ -1835,7 +1833,7 @@ window.generateTemporalChartImage = async function generateTemporalChartImage(mo
                     fill: false
                 });
                 datasets.push({
-                    label: _isEN ? '6M Forecast — Missing VAT (Nexus ATF)' : 'Previsão 6M — IVA em Falta (Nexus ATF)',
+                    label: 'Previsão 6M — IVA em Falta (Nexus ATF)',
                     data: nullPad.concat(forecast.ivaSeries),
                     borderColor: '#F97316',
                     pointRadius: 3,

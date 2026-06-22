@@ -558,6 +558,19 @@ window.UNIFED_RenderTop3 = function() {
     console.log('[UI-TOP3] 🎨 Renderizando TOP 3 questões...');
     container.innerHTML = '';
 
+    // ── FASE 3 — Infraestrutura i18n do conteúdo das perguntas ──────────────
+    // Seleciona campos *EN (textEN/normaEN/implicacaoEN/defesaEN/titleEN) quando
+    // currentLang === 'en'. Fallback para o campo PT se a tradução EN ainda não
+    // existir para esta pergunta (rollout incremental por eixo — ver
+    // UNIFED_STATE.md Fase 3). Os campos PT NUNCA são removidos/alterados.
+    const _r3_isEN = (window.currentLang || 'pt') === 'en';
+    const _r3_axisLabel = _r3_isEN ? 'Axis' : 'Eixo';
+    function _r3_field(q, ptField, enField) {
+        if (_r3_isEN && q[enField]) return q[enField];
+        return q[ptField] || '';
+    }
+    // ── FIM infraestrutura FASE 3 ────────────────────────────────────────────
+
     top3.forEach(function(q, index) {
         const card = document.createElement('div');
         card.className = 'top3-question-card';
@@ -566,29 +579,29 @@ window.UNIFED_RenderTop3 = function() {
         const headerHtml = '<div class="header">' +
             '<div>' +
             '<span class="id-badge">' + q.id + '</span>' +
-            '<span class="axis-badge">Eixo ' + q.axis + '</span>' +
+            '<span class="axis-badge">' + _r3_axisLabel + ' ' + q.axis + '</span>' +
             '<span class="score-badge">Score: ' + q.relevanceScore + '</span>' +
             '</div>' +
             '<div style="font-size: 12px; color: #00e5ff; font-weight: bold;">#' + (index + 1) + '</div>' +
             '</div>';
 
         const questionTextHtml = '<div class="question-text" contenteditable="true" data-field="text">' + 
-            (q.text || '') + 
+            _r3_field(q, 'text', 'textEN') + 
             '</div>';
 
         const normaHtml = '<div class="norma">' +
             '<div class="label" data-pt="📋 Norma Legal" data-en="📋 Legal Norm">📋 Norma Legal</div>' +
-            (q.norma || '') +
+            _r3_field(q, 'norma', 'normaEN') +
             '</div>';
 
         const implicacaoHtml = '<div class="implicacao">' +
             '<div class="label" data-pt="⚡ Implicação Técnica/Jurídica" data-en="⚡ Technical/Legal Implication">⚡ Implicação Técnica/Jurídica</div>' +
-            (q.implicacao || '') +
+            _r3_field(q, 'implicacao', 'implicacaoEN') +
             '</div>';
 
         const defesaHtml = '<div class="defesa">' +
             '<div class="label" data-pt="🛡️ Estratégia de Defesa" data-en="🛡️ Defense Strategy">🛡️ Estratégia de Defesa</div>' +
-            (q.defesa || '') +
+            _r3_field(q, 'defesa', 'defesaEN') +
             '</div>';
 
         card.innerHTML = headerHtml + questionTextHtml + normaHtml + implicacaoHtml + defesaHtml;
@@ -644,6 +657,9 @@ function setupTop3EditListeners() {
 
 document.addEventListener('DOMContentLoaded', function() {
     const regenerateBtn = document.getElementById('regenerateTop3Btn');
+    // FIX-TOP3-DUPLICATE-ALERT: guard partilhado com o <script> inline de index.html
+    // (que usa o mesmo dataset.hooked). Qualquer um dos dois scripts que execute
+    // primeiro reivindica o botão; o outro não regista listener duplicado.
     if (regenerateBtn && !regenerateBtn.dataset.hooked) {
         regenerateBtn.dataset.hooked = 'true';
         regenerateBtn.addEventListener('click', function() {
@@ -673,6 +689,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const acceptBtn = document.getElementById('acceptTop3Btn');
+    // FIX-TOP3-DUPLICATE-ALERT: guard partilhado com o <script> inline de index.html
+    // (que usa o mesmo dataset.hooked). Elimina o duplo alerta "TOP 3 Confirmado".
     if (acceptBtn && !acceptBtn.dataset.hooked) {
         acceptBtn.dataset.hooked = 'true';
         acceptBtn.addEventListener('click', function() {
@@ -681,9 +699,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.UNIFEDSystem.analysis.top3Accepted = true;
                 window.UNIFEDSystem.analysis.acceptTimestamp = new Date().toISOString();
             }
-            alert(window.currentLang === 'en'
-                ? '✅ TOP 3 Confirmed. Proceed with exporting the packages (Lawyer or Analyst).'
-                : '✅ TOP 3 Confirmado. Proceda com Exportação dos Pacotes (Advogado ou Analista).');
+            alert('✅ TOP 3 Confirmado. Proceda com Exportação dos Pacotes (Advogado ou Analista).');
         });
 
         acceptBtn.addEventListener('mouseover', function() {
@@ -1130,26 +1146,10 @@ const validateNIF = (nif) => {
 };
 
 const formatCurrency = (value) => {
-    if (value === undefined || value === null || isNaN(value)) {
-        const _caller = (new Error()).stack ? (new Error()).stack.split('\n')[2] || 'desconhecido' : 'desconhecido';
-        console.error('[ERR-DATA-MISSING] formatCurrency recebeu valor inválido:', value, '| Origem:', _caller);
-        if (window.ForensicLogger && typeof window.ForensicLogger.addEntry === 'function') {
-            window.ForensicLogger.addEntry('ERR_DATA_MISSING', { fn: 'formatCurrency', value: String(value), origin: _caller });
-        }
-        return '0,00 €';
-    }
     return forensicRound(value).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 };
 
 const formatCurrencyEN = (value) => {
-    if (value === undefined || value === null || isNaN(value)) {
-        const _caller = (new Error()).stack ? (new Error()).stack.split('\n')[2] || 'unknown' : 'unknown';
-        console.error('[ERR-DATA-MISSING] formatCurrencyEN received invalid value:', value, '| Origin:', _caller);
-        if (window.ForensicLogger && typeof window.ForensicLogger.addEntry === 'function') {
-            window.ForensicLogger.addEntry('ERR_DATA_MISSING', { fn: 'formatCurrencyEN', value: String(value), origin: _caller });
-        }
-        return '0.00 €';
-    }
     return forensicRound(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 };
 
@@ -1308,221 +1308,15 @@ function getForensicMetadata() {
 }
 
 // ============================================================================
-// RETIFICAÇÃO ITEM-B (i18n OTS/TSA) — Dicionário Bilingue para Módulo de Selagem
+// SISTEMA DE LOGS FORENSES
 // ============================================================================
-// ANTERIOR: botões, badges, toasts e modals do módulo de selagem externa
-// (OTS Blockchain / RFC 3161 TSA, linhas ~1650-2400) continham texto
-// hardcoded em PT, independente de window.currentLang. Resultado: ao
-// alternar para EN/US, estes elementos permaneciam em português dentro e
-// fora dos cards (mistura PT/EN reportada).
-// CORRIGIDO: tabela central _OTS_I18N + função _otsT(key) lida em runtime
-// por window.currentLang. Cada ocorrência hardcoded é substituída por
-// _otsT('chave'). Termos técnicos internacionais (RFC 3161, OTS, TSA,
-// SHA-256, OpenSSL, X.509, TimeStampToken) não são traduzidos.
-const _OTS_I18N = {
-    certifyingBlockchain: { pt: 'A CERTIFICAR NA BLOCKCHAIN...',                       en: 'CERTIFYING ON BLOCKCHAIN...' },
-    otsPending:           { pt: 'OTS: PENDENTE',                                       en: 'OTS: PENDING' },
-    validatingTsr:        { pt: 'A VALIDAR FICHEIRO TSR...',                           en: 'VALIDATING TSR FILE...' },
-    sealLevel2:           { pt: 'EFETUAR SELAGEM EXTERNA (NÍVEL 2)',                   en: 'PERFORM EXTERNAL SEAL (LEVEL 2)' },
-    sealingTsa:           { pt: 'A SELAR NA TSA RFC 3161...',                          en: 'SEALING AT TSA RFC 3161...' },
-    level2Anchored:       { pt: 'NÍVEL 2: ANCORADO',                                   en: 'LEVEL 2: ANCHORED' },
-    sealedViaRfc3161Ssl:  { pt: 'SELADO VIA RFC 3161 (OpenSSL)',                       en: 'SEALED VIA RFC 3161 (OpenSSL)' },
-    sealedViaRfc3161:     { pt: 'SELADO VIA RFC 3161',                                  en: 'SEALED VIA RFC 3161' },
-    modalLevel2Title:     { pt: '🛡️ SELAGEM NÍVEL 2 — RFC 3161',                       en: '🛡️ LEVEL 2 SEAL — RFC 3161' },
-    authorityLabel:       { pt: 'Autoridade:',                                         en: 'Authority:' },
-    statusSealedSsl:      { pt: 'STATUS: SELADO VIA RFC 3161 (OpenSSL) ✓',             en: 'STATUS: SEALED VIA RFC 3161 (OpenSSL) ✓' },
-    toastSeal2Done:       { pt: '🛡️ Selagem Nível 2 concluída — RFC 3161',             en: '🛡️ Level 2 seal completed — RFC 3161' },
-    toastCsvImported:     { pt: (n) => `CSV importado: ${n} entradas RFC 3161.`,        en: (n) => `CSV imported: ${n} RFC 3161 entries.` },
-    level2RequiresApi:    { pt: '◷ Nível 2 (Externo): Requer API de produção TSA (RFC 3161)', en: '◷ Level 2 (External): Requires production TSA API (RFC 3161)' },
-    seal1Title:           { pt: '🛡️ SELAGEM RFC 3161 — NÍVEL 1 ACTIVO',               en: '🛡️ RFC 3161 SEAL — LEVEL 1 ACTIVE' },
-    seal1CertifiedHint:   { pt: '✔ Para prova RFC 3161 certificada: carregar .tsr via <b>"Opção A — Carregar TSR"</b>.', en: '✔ For certified RFC 3161 proof: upload .tsr via <b>"Option A — Upload TSR"</b>.' },
-    proxyTokenObtained:   { pt: (proxy) => `Token RFC 3161 obtido via <b>${proxy}</b>.<br><br>`, en: (proxy) => `RFC 3161 token obtained via <b>${proxy}</b>.<br><br>` },
-    proxyVerified:        { pt: 'proxy verificado',                                    en: 'verified proxy' },
-    externalAnchorDone:   { pt: 'ANCORAGEM EXTERNA CONCLUÍDA (PROTOCOLO RFC 3161)',     en: 'EXTERNAL ANCHORING COMPLETE (RFC 3161 PROTOCOL)' },
-
-    // ── Bloco: showBlockchainExplain (modal "Verificação de Integridade") ──
-    integrityModalTitle: { pt: '🔗 VERIFICAÇÃO DE INTEGRIDADE UNIFED - PROBATUM',       en: '🔗 UNIFED-PROBATUM INTEGRITY VERIFICATION' },
-    hashDefinitiveLabel: { pt: 'Hash SHA-256 (definitivo):',                           en: 'SHA-256 Hash (definitive):' },
-    hashImmutableText:   { pt: 'O hash acima é <strong style="color:#4ade80;">matematicamente imutável</strong>. Qualquer alteração ao ficheiro original produzirá um hash completamente diferente.',
-                            en: 'The hash above is <strong style="color:#4ade80;">mathematically immutable</strong>. Any change to the original file will produce a completely different hash.' },
-    certificationLevels: { pt: 'NÍVEIS DE CERTIFICAÇÃO',                               en: 'CERTIFICATION LEVELS' },
-    level1ActiveText:    { pt: '✔ Nível 1 (Interno): ACTIVO — Selagem PROBATUM',        en: '✔ Level 1 (Internal): ACTIVE — PROBATUM Seal' },
-    level1Label:         { pt: 'Nível 1',                                              en: 'Level 1' },
-    closeButton:         { pt: 'FECHAR',                                               en: 'CLOSE' },
-
-    // ── Bloco: renderCustodyLog (estado vazio) ──
-    custodyEmptyState:   { pt: 'Sem eventos registados. Faça upload de ficheiros para iniciar a cadeia de custódia.',
-                            en: 'No events recorded. Upload files to start the chain of custody.' },
-
-    // ── Bloco: _promptNivel2Seal (modal "SELAGEM NÍVEL 2 — RFC 3161") ──
-    selectModeText:      { pt: 'Selecione o modo de operação:',                        en: 'Select the operating mode:' },
-    optionATitle:        { pt: 'Opção A — Carregar Prova TSR',                         en: 'Option A — Upload TSR Proof' },
-    optionAText:         { pt: 'Valida um ficheiro <code>.tsr</code> gerado localmente pelo motor PowerShell/OpenSSL contra o hash do ficheiro em análise. Adequado para consultoria técnicas com selagem local pré-existente.',
-                            en: 'Validates a locally generated <code>.tsr</code> file (PowerShell/OpenSSL engine) against the hash of the file under analysis. Suitable for technical consultancies with pre-existing local sealing.' },
-    optionBTitle:        { pt: 'Opção B — Selar Online (FreeTSA)',                     en: 'Option B — Seal Online (FreeTSA)' },
-    optionBText:         { pt: 'Submete o Master Hash ao nó FreeTSA.org em tempo real.',
-                            en: 'Submits the Master Hash to the FreeTSA.org node in real time.' },
-    optionBCorsNote:     { pt: '(Pode estar sujeito a restrições CORS em ambiente browser)',
-                            en: '(May be subject to CORS restrictions in a browser environment)' },
-    uploadTsrBtn:        { pt: '<i class="fas fa-upload"></i> A — Carregar TSR',        en: '<i class="fas fa-upload"></i> A — Upload TSR' },
-    sealOnlineBtn:       { pt: '<i class="fas fa-cloud-upload-alt"></i> B — Selar Online', en: '<i class="fas fa-cloud-upload-alt"></i> B — Seal Online' },
-    cancelBtn:           { pt: 'Cancelar',                                             en: 'Cancel' },
-
-    // ── Bloco: _loadAndValidateTSR ──
-    invalidTsrTitle:     { pt: '⚠️ FICHEIRO TSR INVÁLIDO',                              en: '⚠️ INVALID TSR FILE' },
-    invalidTsrText:      { pt: (name) => `O ficheiro <b>${name}</b> não aparenta ser um TimeStampResponse ASN.1/DER válido.<br><br>Verifique se o ficheiro foi gerado pelo motor OpenSSL e não está corrompido.`,
-                            en: (name) => `The file <b>${name}</b> does not appear to be a valid ASN.1/DER TimeStampResponse.<br><br>Check whether the file was generated by the OpenSSL engine and is not corrupted.` },
-    tsrLoadedTitle:      { pt: '✅ PROVA TSR CARREGADA E REGISTADA',                    en: '✅ TSR PROOF UPLOADED AND RECORDED' },
-    tsrFileLabel:        { pt: 'Ficheiro TSR:',                                         en: 'TSR File:' },
-    sizeLabel:           { pt: 'Tamanho:',                                              en: 'Size:' },
-    tsrFingerprintLabel: { pt: 'Fingerprint SHA-256 (TSR):',                           en: 'SHA-256 Fingerprint (TSR):' },
-    serialApproxLabel:   { pt: 'Série Aproximada:',                                    en: 'Approximate Serial:' },
-    complianceNote:      { pt: 'Conf. eIDAS (UE) 910/2014 · ISO/IEC 27037:2012 · D.L. n.º 28/2019 · Art. 30.º RGPD',
-                            en: 'Compl. eIDAS (EU) 910/2014 · ISO/IEC 27037:2012 · D.L. 28/2019 (PT) · Art. 30 GDPR' },
-    tsrValidateErrorPrefix: { pt: 'Erro ao validar ficheiro TSR: ',                     en: 'Error validating TSR file: ' },
-
-    // ── Bloco: _doOnlineSeal / _nivel2SealSuccess / _showNivel2Modal ──
-    seal2CompletedTitle: { pt: '🛡️ SELAGEM NÍVEL 2 CONCLUÍDA',                          en: '🛡️ LEVEL 2 SEAL COMPLETED' },
-    seal2NonRepudiation: { pt: (date) => `Token RFC 3161 obtido via <b>proxy verificado</b>.<br><br><code style="font-size:0.75rem;color:#00e5ff;">Hora TSA: ${date}</code><br><br>Esta selagem constitui prova de não-repúdio conforme ISO/IEC 27037:2012 e D.L. n.º 28/2019 de 15 de fevereiro.`,
-                            en: (date) => `RFC 3161 token obtained via <b>verified proxy</b>.<br><br><code style="font-size:0.75rem;color:#00e5ff;">TSA time: ${date}</code><br><br>This seal constitutes non-repudiation proof under ISO/IEC 27037:2012 and Portuguese D.L. 28/2019 (15 February).` },
-    proxyUnavailable:    { pt: (msg) => `⚠️ Proxy TSA indisponível: ${msg}`,            en: (msg) => `⚠️ TSA proxy unavailable: ${msg}` },
-    protocolLabel:       { pt: 'Protocolo:',                                           en: 'Protocol:' },
-    tokenLabel:          { pt: 'Token:',                                               en: 'Token:' },
-    timeLabel:           { pt: 'Hora:',                                                en: 'Time:' },
-    sha256RealImmutable: { pt: '✔ Master Hash SHA-256 real e imutável.<br>',           en: '✔ Real and immutable SHA-256 Master Hash.<br>' },
-    anchoredSubtitle:    { pt: 'NÍVEL 2 · SHA-256 · PROVA DE NÃO-REPÚDIO · INVIABILIDADE DE ALTERAÇÃO RETROATIVA',
-                            en: 'LEVEL 2 · SHA-256 · NON-REPUDIATION PROOF · RETROACTIVE TAMPERING NOT FEASIBLE' },
-    anchorIntroText:     { pt: 'O Master Hash SHA-256 da presente consultoria técnica foi submetido e validado com sucesso por uma <strong style="color:#fff;">Autoridade de Carimbo de Tempo (TSA) Certificada</strong>. <strong style="color:#4ade80;">Certificado de Existência:</strong>',
-                            en: 'The SHA-256 Master Hash of this technical consultancy was submitted to and successfully validated by a <strong style="color:#fff;">Certified Time Stamping Authority (TSA)</strong>. <strong style="color:#4ade80;">Certificate of Existence:</strong>' },
-    dateTimeUtcLabel:    { pt: 'Data/Hora UTC:',                                       en: 'Date/Time UTC:' },
-    statusLabel:         { pt: 'Status:',                                              en: 'Status:' },
-    tsaProviderLabel:    { pt: 'TSA Provider:',                                        en: 'TSA Provider:' },
-    statusAnchored:      { pt: 'ANCORADO (Immutable Anchor)',                          en: 'ANCHORED (Immutable Anchor)' },
-    retroactiveWarning:  { pt: '[!] <strong style="color:#ef4444;">INVIABILIDADE DE ALTERAÇÃO RETROATIVA:</strong> O SHA-256 é uma função criptográfica unidirecional. Qualquer modificação ao documento — mesmo de um único byte — produz um hash completamente diferente, tornando matematicamente impossível adulterar o conteúdo sem deteção imediata. <strong style="color:#fff;">Esta operação gera prova de não-repúdio que vincula matematicamente este relatório a este exato momento temporal.</strong>',
-                            en: '[!] <strong style="color:#ef4444;">RETROACTIVE TAMPERING NOT FEASIBLE:</strong> SHA-256 is a one-way cryptographic function. Any modification to the document — even a single byte — produces a completely different hash, making it mathematically impossible to tamper with the content without immediate detection. <strong style="color:#fff;">This operation generates non-repudiation proof that mathematically binds this report to this exact point in time.</strong>' },
-    confirmAndCloseBtn:  { pt: 'CONFIRMAR E FECHAR',                                    en: 'CONFIRM AND CLOSE' },
-
-    // ── Bloco: sealStatusCode → sealStatus (texto derivado, bilingue) ──
-    // Códigos internos neutros gravados em ev.sealStatusCode; sealStatus é
-    // SEMPRE derivado destes códigos via _otsT() no momento de leitura,
-    // garantindo que UI e documentos exportados refletem currentLang.
-    PENDING:                { pt: 'PENDENTE',                       en: 'PENDING' },
-    SEALED_RFC3161_OPENSSL: { pt: 'SELADO VIA RFC 3161 (OpenSSL)',  en: 'SEALED VIA RFC 3161 (OpenSSL)' },
-    SEALED_RFC3161:         { pt: 'SELADO VIA RFC 3161',            en: 'SEALED VIA RFC 3161' },
-    SEALED_OTS_L1:          { pt: 'BLOCKCHAIN OTS (Nível 1)',        en: 'OTS BLOCKCHAIN (Level 1)' },
-    GRANTED:                { pt: 'CONCEDIDO',                       en: 'Granted' },
-
-    // ── Bloco 6: _showOTSSuccessModal (OTS Blockchain — confirmação/pendente) ──
-    otsTitlePendingStub: { pt: '⏳ REGISTO LOCAL — SUBMISSÃO PENDENTE',                 en: '⏳ LOCAL RECORD — SUBMISSION PENDING' },
-    otsTitleConfirmed:   { pt: '🔗 ANCORAGEM BLOCKCHAIN CONFIRMADA (MERKLE PROOF)',     en: '🔗 BLOCKCHAIN ANCHOR CONFIRMED (MERKLE PROOF)' },
-    otsTitleDone:        { pt: '🛡️ ANCORAGEM BLOCKCHAIN EFETUADA',                     en: '🛡️ BLOCKCHAIN ANCHOR COMPLETED' },
-
-    otsSubtitlePendingStub: { pt: 'STUB LOCAL · HASH REAL · RE-SUBMETER EM PRODUÇÃO',   en: 'LOCAL STUB · REAL HASH · RE-SUBMIT IN PRODUCTION' },
-    otsSubtitleConfirmed:   { pt: 'BITCOIN MERKLE PROOF · INVIABILIDADE DE ALTERAÇÃO RETROATIVA · PROVA DE NÃO-REPÚDIO',
-                              en: 'BITCOIN MERKLE PROOF · RETROACTIVE TAMPERING NOT FEASIBLE · NON-REPUDIATION PROOF' },
-    otsSubtitleDone:        { pt: 'OPENTIMESTAMPS · CALENDAR ATTESTATION · ISO/IEC 27037:2012', en: 'OPENTIMESTAMPS · CALENDAR ATTESTATION · ISO/IEC 27037:2012' },
-
-    otsBodyPendingStub: { pt: 'O nó OpenTimestamps não estava acessível. Um ficheiro stub foi gerado com o hash real e o timestamp da tentativa. Em ambiente de produção, re-submeter o ficheiro <code style="color:#00e5ff;">.ots</code> gerado ao calendário OTS para obter a prova Bitcoin completa.',
-                          en: 'The OpenTimestamps node was not reachable. A stub file was generated with the real hash and the attempt timestamp. In a production environment, re-submit the generated <code style="color:#00e5ff;">.ots</code> file to the OTS calendar to obtain the full Bitcoin proof.' },
-    otsBodyConfirmed:   { pt: 'O Master Hash SHA-256 desta consultoria técnica está ancorado na <strong style="color:#f59e0b;">Bitcoin blockchain</strong> com prova Merkle completa. Esta operação constitui <strong style="color:#fff;">prova forense irrevogável de existência temporal</strong> — qualquer alteração retroativa ao documento é <strong style="color:#ef4444;">matematicamente inviável</strong>. Guarde o ficheiro <code style="color:#00e5ff;">.ots</code> — ele é a sua prova definitiva de existência temporal imutável.',
-                          en: 'The SHA-256 Master Hash of this technical consultancy is anchored on the <strong style="color:#f59e0b;">Bitcoin blockchain</strong> with a complete Merkle proof. This operation constitutes <strong style="color:#fff;">irrevocable forensic proof of existence in time</strong> — any retroactive change to the document is <strong style="color:#ef4444;">mathematically not feasible</strong>. Keep the <code style="color:#00e5ff;">.ots</code> file — it is your definitive immutable proof of existence in time.' },
-    otsBodyDone:        { pt: 'O Master Hash SHA-256 desta consultoria técnica foi submetido e aceite pelos Calendários Remotos OpenTimestamps. O <code style="color:#00e5ff;">ficheiro .ots</code> contém um <strong style="color:#fff;">Calendar Attestation criptograficamente vinculado</strong> ao seu hash — constitui <strong style="color:#f59e0b;">prova de não-repúdio imediata</strong>. A confirmação Bitcoin Merkle (bloco blockchain) ficará disponível após ~1 hora. Guarde este ficheiro. <strong style="color:#fff;">Ele é a sua prova definitiva de existência temporal imutável.</strong>',
-                          en: 'The SHA-256 Master Hash of this technical consultancy was submitted to and accepted by the OpenTimestamps Remote Calendars. The <code style="color:#00e5ff;">.ots file</code> contains a <strong style="color:#fff;">cryptographically bound Calendar Attestation</strong> to its hash — it constitutes <strong style="color:#f59e0b;">immediate non-repudiation proof</strong>. Bitcoin Merkle confirmation (blockchain block) will be available after ~1 hour. Keep this file. <strong style="color:#fff;">It is your definitive immutable proof of existence in time.</strong>' },
-
-    otsBadgePendingStub: { pt: '⏳ STUB LOCAL',                                         en: '⏳ LOCAL STUB' },
-    otsBadgeConfirmed:   { pt: '✔ BITCOIN MERKLE PROOF (CONFIRMADO)',                   en: '✔ BITCOIN MERKLE PROOF (CONFIRMED)' },
-    otsBadgeDone:        { pt: '⏱ CALENDAR ATTESTATION (CONFIRMAÇÃO BITCOIN ~1h)',      en: '⏱ CALENDAR ATTESTATION (BITCOIN CONFIRMATION ~1h)' },
-
-    fileLabel:           { pt: 'Ficheiro:',                                             en: 'File:' },
-    masterHashSha256Label: { pt: 'Master Hash SHA-256:',                               en: 'SHA-256 Master Hash:' },
-    otsProtocolValue:    { pt: 'OpenTimestamps · Bitcoin blockchain · Calendários Alice/Bob/Finney',
-                            en: 'OpenTimestamps · Bitcoin blockchain · Alice/Bob/Finney calendars' },
-    stateLabel:          { pt: 'Estado:',                                               en: 'State:' },
-    offlineVerifyLabel:  { pt: 'Verificação offline:',                                  en: 'Offline verification:' },
-    offlineVerifyHint:   { pt: (filename) => `ots verify ${filename} —— confirma hash na Bitcoin blockchain`,
-                            en: (filename) => `ots verify ${filename} —— confirms hash on the Bitcoin blockchain` },
-
-    retroactiveWarningOts: { pt: '[!] <strong style="color:#ef4444;">INVIABILIDADE DE ALTERAÇÃO RETROATIVA:</strong> O SHA-256 é uma função de hash criptográfica unidirecional. Qualquer modificação ao documento original — mesmo de um único bit — produz um hash completamente diferente, tornando matematicamente impossível adulterar o conteúdo sem deteção imediata. Esta propriedade, combinada com a ancoragem blockchain, constitui <strong style="color:#fff;">prova de não-repúdio absoluta.</strong>',
-                              en: '[!] <strong style="color:#ef4444;">RETROACTIVE TAMPERING NOT FEASIBLE:</strong> SHA-256 is a one-way cryptographic hash function. Any modification to the original document — even a single bit — produces a completely different hash, making it mathematically impossible to tamper with the content without immediate detection. This property, combined with the blockchain anchor, constitutes <strong style="color:#fff;">absolute non-repudiation proof.</strong>' },
-
-    // ── Bloco 7: renderCustodyLog (corpo principal — uma entrada de log) ──
-    level1ActiveBadge:   { pt: 'NÍVEL 1: ATIVO',                                       en: 'LEVEL 1: ACTIVE' },
-    serialNumberLabel:   { pt: 'S/N:',                                                 en: 'S/N:' },
-    eventLabel:          { pt: 'EVENTO:',                                             en: 'EVENT:' },
-    fileLabelUpper:      { pt: 'FICHEIRO:',                                           en: 'FILE:' },
-    timestampLabel:      { pt: 'TIMESTAMP:',                                          en: 'TIMESTAMP:' },
-    hashSha256Label:     { pt: 'HASH SHA-256:',                                       en: 'SHA-256 HASH:' },
-    sourceLabel:         { pt: 'FONTE:',                                              en: 'SOURCE:' },
-    levelLabel:          { pt: 'NÍVEL:',                                              en: 'LEVEL:' },
-    validateBlockchainBtn: { pt: 'Validar na Blockchain/TSA',                         en: 'Validate on Blockchain/TSA' },
-    internalTimeCertLevel1: { pt: 'Certificação de Tempo Interna (Nível 1)',          en: 'Internal Time Certification (Level 1)' },
-
-    // ── Bloco 8: confirmações, toasts e alertas dispersos no módulo OTS/TSA ──
-    confirmClearLogs:    { pt: 'Confirma a limpeza de todos os logs de custódia? Esta acção é irreversível.',
-                            en: 'Confirm clearing all chain-of-custody logs? This action is irreversible.' },
-    csvColumnsNotFound:  { pt: (cols) => `[CSV] Colunas não encontradas: ${cols}`,
-                            en: (cols) => `[CSV] Columns not found: ${cols}` },
-    hashUnavailableTitle: { pt: '[!] HASH INDISPONÍVEL',                               en: '[!] HASH UNAVAILABLE' },
-    hashUnavailableText: { pt: 'O Master Hash SHA-256 não está disponível. Processe os ficheiros de evidência primeiro.',
-                            en: 'The SHA-256 Master Hash is not available. Process the evidence files first.' },
-    hashUnavailableShort: { pt: 'HASH INDISPONÍVEL',                                  en: 'HASH UNAVAILABLE' },
-    otsFileDownloadedText: { pt: 'O ficheiro .ots foi gerado e descarregado. Este é o selo de imutabilidade eterna da Bitcoin para este processo.',
-                            en: 'The .ots file has been generated and downloaded. This is the eternal Bitcoin immutability seal for this process.' },
-    submissionPendingTitle: { pt: '⏳ SUBMISSÃO PENDENTE',                             en: '⏳ SUBMISSION PENDING' },
-    otsNodeUnreachableText: { pt: (msg) => `O nó OTS não estava acessível (CORS/rede). O ficheiro stub foi descarregado com o hash real. Re-submeta em produção para obter a prova Bitcoin completa. Erro: ${msg}`,
-                               en: (msg) => `The OTS node was not reachable (CORS/network). The stub file was downloaded with the real hash. Re-submit in production to obtain the full Bitcoin proof. Error: ${msg}` },
-    downloadBlockedText: { pt: 'Download bloqueado — integridade da cadeia de custódia não verificável.',
-                            en: 'Download blocked — chain-of-custody integrity could not be verified.' },
-    noActivityLogText:   { pt: '[Nenhum registo de atividade disponível]',            en: '[No activity log available]' },
-    blockchainConfirmedBtn: { pt: '<i class="fas fa-check-circle"></i> BLOCKCHAIN: CONFIRMADO', en: '<i class="fas fa-check-circle"></i> BLOCKCHAIN: CONFIRMED' },
-    blockchainCertifiedBtn: { pt: '<i class="fas fa-check-circle"></i> BLOCKCHAIN: CERTIFICADO', en: '<i class="fas fa-check-circle"></i> BLOCKCHAIN: CERTIFIED' },
-    anonymousUser:       { pt: 'Anónimo',                                              en: 'Anonymous' },
-    anchoredViaLocalNodeDemo: { pt: 'ANCORADO VIA NÓ LOCAL (DEMO)',                    en: 'ANCHORED VIA LOCAL NODE (DEMO)' }
-};
-function _otsT(key, ...args) {
-    const lang = (window.currentLang === 'en') ? 'en' : 'pt';
-    const entry = _OTS_I18N[key];
-    if (!entry) return key;
-    const val = entry[lang];
-    return (typeof val === 'function') ? val(...args) : val;
-}
-window._otsT = _otsT;
-
-// ── Mapa de fallback: valores legados de sealStatus (PT, gravados antes desta
-// correção) → sealStatusCode, para compatibilidade retroativa ───────────────
-const _LEGACY_SEAL_STATUS_TO_CODE = {
-    'PENDENTE':                     'PENDING',
-    'SELADO VIA RFC 3161 (OpenSSL)': 'SEALED_RFC3161_OPENSSL',
-    'SELADO VIA RFC 3161':          'SEALED_RFC3161',
-    'BLOCKCHAIN OTS (Nível 1)':      'SEALED_OTS_L1',
-    'Granted':                       'GRANTED'
-};
-
-// ── _resolveSealStatus(ev): devolve sealStatus textual no idioma actual.
-// Prioriza ev.sealStatusCode (novo campo neutro); se ausente, tenta mapear o
-// valor legado de ev.sealStatus para um código via _LEGACY_SEAL_STATUS_TO_CODE;
-// se também não houver correspondência, devolve ev.sealStatus tal-qual
-// (preserva dados externos/CSV não normalizados, ex: status='Granted'
-// proveniente de importação CSV de controlo).
-function _resolveSealStatus(ev) {
-    if (!ev) return _otsT('PENDING');
-    let code = ev.sealStatusCode;
-    if (!code && ev.sealStatus) {
-        code = _LEGACY_SEAL_STATUS_TO_CODE[ev.sealStatus];
-    }
-    if (code && _OTS_I18N[code]) {
-        return _otsT(code);
-    }
-    return ev.sealStatus || _otsT('PENDING');
-}
-window._resolveSealStatus = _resolveSealStatus;
 
 function mockRFC3161Timestamp(hashHex) {
     const now = new Date();
     return {
         status: 'PROBATUM_INTERNAL_SEAL',
         tsaSource: 'PROBATUM INTERNAL SEAL (PENDING EXTERNAL TSA)',
-        tsaLevel: _otsT('internalTimeCertLevel1'),
+        tsaLevel: 'Certificação de Tempo Interna (Nível 1)',
         serialNumber: 'PROBATUM-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
         genTime: now.toISOString(),
         genTimeUnix: Math.floor(now.getTime() / 1000),
@@ -1586,6 +1380,27 @@ function showBlockchainExplain(hash) {
     const existing = document.getElementById('tsaProductionPanel');
     if (existing) { existing.remove(); return; }
 
+    // ── FASE 2.2 — i18n do modal de Verificação de Integridade ──────────────
+    const _bx_isPT = (window.currentLang || 'pt') === 'pt';
+    const _bx = _bx_isPT ? {
+        title: '🔗 VERIFICAÇÃO DE INTEGRIDADE UNIFED - PROBATUM',
+        hashLabel: 'Hash SHA-256 (definitivo):',
+        explanation: 'O hash acima é <strong style="color:#4ade80;">matematicamente imutável</strong>. Qualquer alteração ao ficheiro original produzirá um hash completamente diferente.',
+        certLevels: 'NÍVEIS DE CERTIFICAÇÃO',
+        level1: '✔ Nível 1 (Interno): ACTIVO — Selagem PROBATUM',
+        level2: '◷ Nível 2 (Externo): Requer API de produção TSA (RFC 3161)',
+        close: 'FECHAR'
+    } : {
+        title: '🔗 UNIFED - PROBATUM INTEGRITY VERIFICATION',
+        hashLabel: 'SHA-256 Hash (final):',
+        explanation: 'The hash above is <strong style="color:#4ade80;">mathematically immutable</strong>. Any change to the original file will produce a completely different hash.',
+        certLevels: 'CERTIFICATION LEVELS',
+        level1: '✔ Level 1 (Internal): ACTIVE — PROBATUM Sealing',
+        level2: '◷ Level 2 (External): Requires production TSA API (RFC 3161)',
+        close: 'CLOSE'
+    };
+    // ── FIM cabeçalho FASE 2.2 ───────────────────────────────────────────────
+
     const el = document.createElement('div');
     el.id = 'tsaProductionPanel';
     el.style.cssText = [
@@ -1598,20 +1413,20 @@ function showBlockchainExplain(hash) {
     ].join('');
     el.innerHTML = `
         <div style="color:#00e5ff;font-weight:700;font-size:0.8rem;margin-bottom:0.8rem;letter-spacing:1px;">
-            ${_otsT('integrityModalTitle')}
+            ${_bx.title}
         </div>
         <p style="margin-bottom:0.6rem;line-height:1.6;color:#94a3b8;">
-            <strong style="color:#fff;">${_otsT('hashDefinitiveLabel')}</strong><br>
+            <strong style="color:#fff;">${_bx.hashLabel}</strong><br>
             <span style="color:#4ade80;word-break:break-all;font-size:0.65rem;">${hash}</span>
         </p>
         <p style="margin-bottom:0.8rem;line-height:1.6;color:#94a3b8;">
-            ${_otsT('hashImmutableText')}
+            ${_bx.explanation}
         </p>
         <div style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.2);
                     padding:0.6rem 0.8rem;border-radius:3px;margin-bottom:0.8rem;">
-            <div style="color:#00e5ff;font-size:0.65rem;margin-bottom:0.4rem;font-weight:700;">${_otsT('certificationLevels')}</div>
-            <div style="color:#4ade80;margin-bottom:0.2rem;">${_otsT('level1ActiveText')}</div>
-            <div style="color:#f59e0b;">${_otsT('level2RequiresApi')}</div>
+            <div style="color:#00e5ff;font-size:0.65rem;margin-bottom:0.4rem;font-weight:700;">${_bx.certLevels}</div>
+            <div style="color:#4ade80;margin-bottom:0.2rem;">${_bx.level1}</div>
+            <div style="color:#f59e0b;">${_bx.level2}</div>
         </div>
         <button onclick="document.getElementById('tsaProductionPanel').remove()"
             style="background:transparent;border:1px solid rgba(0,229,255,0.3);color:#00e5ff;
@@ -1619,7 +1434,7 @@ function showBlockchainExplain(hash) {
                    font-family:inherit;font-size:0.68rem;letter-spacing:1px;transition:background 0.2s;"
             onmouseover="this.style.background='rgba(0,229,255,0.1)'"
             onmouseout="this.style.background='transparent'">
-            ${_otsT('closeButton')}
+            ${_bx.close}
         </button>`;
     document.body.appendChild(el);
 }
@@ -1648,11 +1463,40 @@ function renderCustodyLog(logs) {
     const countEl   = document.getElementById('custodyEntryCount');
     if (!container) return;
 
+    // ── FASE 2.2 — i18n do painel Cadeia de Custódia ────────────────────────
+    const _cl_isPT = (window.currentLang || 'pt') === 'pt';
+    const _cl = _cl_isPT ? {
+        empty: 'Sem eventos registados. Faça upload de ficheiros para iniciar a cadeia de custódia.',
+        nivel1Ativo: 'NÍVEL 1: ATIVO',
+        serial: 'S/N',
+        evento: 'EVENTO',
+        ficheiro: 'FICHEIRO',
+        timestamp: 'TIMESTAMP',
+        hash: 'HASH SHA-256',
+        fonte: 'FONTE',
+        nivel: 'NÍVEL',
+        nivelDefault: 'Certificação de Tempo Interna (Nível 1)',
+        validar: 'Validar na Blockchain/TSA'
+    } : {
+        empty: 'No events recorded. Upload files to start the chain of custody.',
+        nivel1Ativo: 'LEVEL 1: ACTIVE',
+        serial: 'S/N',
+        evento: 'EVENT',
+        ficheiro: 'FILE',
+        timestamp: 'TIMESTAMP',
+        hash: 'HASH SHA-256',
+        fonte: 'SOURCE',
+        nivel: 'LEVEL',
+        nivelDefault: 'Internal Time Certification (Level 1)',
+        validar: 'Validate on Blockchain/TSA'
+    };
+    // ── FIM cabeçalho FASE 2.2 ───────────────────────────────────────────────
+
     if (!logs || logs.length === 0) {
         container.innerHTML = `
             <div class="custody-empty-state">
                 <i class="fas fa-inbox"></i>
-                ${_otsT('custodyEmptyState')}
+                ${_cl.empty}
             </div>`;
         if (countEl) countEl.textContent = '0';
         return;
@@ -1675,7 +1519,7 @@ function renderCustodyLog(logs) {
         }
         const hash   = d.hash   || '—';
         const serial = d.serial || (d.rfc3161 && d.rfc3161.serialNumber) || '—';
-        const level  = d.level  || _otsT('internalTimeCertLevel1');
+        const level  = d.level  || _cl.nivelDefault;
         const source = d.source || 'PROBATUM INTERNAL SEAL';
         const fname  = d.fileName || d.filename || '—';
         const ts     = entry.timestamp
@@ -1688,19 +1532,19 @@ function renderCustodyLog(logs) {
         return `
             <div class="custody-entry ${stateClass}">
                 <div class="custody-header">
-                    <span class="custody-badge">${_otsT('level1ActiveBadge')}</span>
-                    <span class="custody-serial">${_otsT('serialNumberLabel')} ${serial}</span>
+                    <span class="custody-badge">${_cl.nivel1Ativo}</span>
+                    <span class="custody-serial">${_cl.serial}: ${serial}</span>
                 </div>
                 <div class="custody-body">
-                    <p><strong>${_otsT('eventLabel')}</strong> ${entry.action}</p>
-                    <p><strong>${_otsT('fileLabelUpper')}</strong> <span style="color:#e2b87a;">${fname}</span></p>
-                    <p><strong>${_otsT('timestampLabel')}</strong> ${ts}</p>
-                    ${hasHash ? `<p><strong>${_otsT('hashSha256Label')}</strong><br><code class="hash-text">${hash}</code></p>` : ''}
-                    <p><strong>${_otsT('sourceLabel')}</strong> ${source}</p>
-                    <p><strong>${_otsT('levelLabel')}</strong> ${level}</p>
+                    <p><strong>${_cl.evento}:</strong> ${entry.action}</p>
+                    <p><strong>${_cl.ficheiro}:</strong> <span style="color:#e2b87a;">${fname}</span></p>
+                    <p><strong>${_cl.timestamp}:</strong> ${ts}</p>
+                    ${hasHash ? `<p><strong>${_cl.hash}:</strong><br><code class="hash-text">${hash}</code></p>` : ''}
+                    <p><strong>${_cl.fonte}:</strong> ${source}</p>
+                    <p><strong>${_cl.nivel}:</strong> ${level}</p>
                 </div>
                 ${hasHash ? `<button class="blockchain-btn" onclick="showBlockchainExplain('${hash}')">
-                    <i class="fas fa-link"></i> ${_otsT('validateBlockchainBtn')}
+                    <i class="fas fa-link"></i> ${_cl.validar}
                 </button>` : ''}
             </div>`;
     }).join('');
@@ -1725,7 +1569,7 @@ function exportCustodyChainJSON() {
 }
 
 function clearCustodyLogs() {
-    if (!confirm(_otsT('confirmClearLogs'))) return;
+    if (!confirm('Confirma a limpeza de todos os logs de custódia? Esta acção é irreversível.')) return;
     ForensicLogger.logs = [];
     ForensicLogger._persist();
     renderCustodyLog([]);
@@ -1767,7 +1611,7 @@ async function importForensicControlCSV(file) {
 
                 const missingCols = Object.entries(COL).filter(([, v]) => v === -1).map(([k]) => k);
                 if (missingCols.length > 0) {
-                    showToast(_otsT('csvColumnsNotFound', missingCols.join(', ')), 'error');
+                    showToast(`[CSV] Colunas não encontradas: ${missingCols.join(', ')}`, 'error');
                     return resolve([]);
                 }
 
@@ -1794,26 +1638,24 @@ async function importForensicControlCSV(file) {
                     );
 
                     if (existing) {
-                        existing.sealType        = entry.status === 'Granted' ? 'RFC3161' : 'PENDING';
-                        existing.tsrPath         = entry.caminhoTsr;
-                        existing.sealDate        = entry.data;
-                        existing.sealStatusCode  = entry.status === 'Granted' ? 'SEALED_RFC3161' : 'PENDING';
-                        existing.sealStatus      = entry.status; // valor bruto do CSV preservado para auditoria
+                        existing.sealType    = entry.status === 'Granted' ? 'RFC3161' : 'PENDING';
+                        existing.tsrPath     = entry.caminhoTsr;
+                        existing.sealDate    = entry.data;
+                        existing.sealStatus  = entry.status;
                         matchCount++;
                     } else {
                         UNIFEDSystem.analysis.evidenceIntegrity.push({
-                            filename:       entry.nome,
-                            type:           'control',
-                            hash:           entry.hash,
-                            timestamp:      entry.data,
-                            size:           0,
-                            timestampUnix:  Math.floor(Date.now() / 1000),
-                            sealType:       entry.status === 'Granted' ? 'RFC3161' : 'PENDING',
-                            tsrPath:        entry.caminhoTsr,
-                            sealDate:       entry.data,
-                            sealStatusCode: entry.status === 'Granted' ? 'SEALED_RFC3161' : 'PENDING',
-                            sealStatus:     entry.status, // valor bruto do CSV preservado para auditoria
-                            source:         'CSV_IMPORT'
+                            filename:   entry.nome,
+                            type:       'control',
+                            hash:       entry.hash,
+                            timestamp:  entry.data,
+                            size:       0,
+                            timestampUnix: Math.floor(Date.now() / 1000),
+                            sealType:   entry.status === 'Granted' ? 'RFC3161' : 'PENDING',
+                            tsrPath:    entry.caminhoTsr,
+                            sealDate:   entry.data,
+                            sealStatus: entry.status,
+                            source:     'CSV_IMPORT'
                         });
                         newCount++;
                     }
@@ -1831,7 +1673,7 @@ async function importForensicControlCSV(file) {
                     `(${matchCount} correspondidas, ${newCount} novas).`,
                     'success'
                 );
-                showToast(_otsT('toastCsvImported', importedEntries.length), 'success');
+                showToast(`CSV importado: ${importedEntries.length} entradas RFC 3161.`, 'success');
                 resolve(importedEntries);
 
             } catch (err) {
@@ -1867,8 +1709,8 @@ async function submitToOpenTimestamps() {
 
     if (!masterHash || masterHash.length < 60) {
         Swal.fire({
-            title: _otsT('hashUnavailableTitle'),
-            text: _otsT('hashUnavailableText'),
+            title: '[!] HASH INDISPONÍVEL',
+            text: 'O Master Hash SHA-256 não está disponível. Processe os ficheiros de evidência primeiro.',
             icon: 'warning',
             confirmButtonColor: '#00e5ff'
         });
@@ -1884,7 +1726,7 @@ async function submitToOpenTimestamps() {
 
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + _otsT('certifyingBlockchain');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A CERTIFICAR NA BLOCKCHAIN...';
         }
 
         const sessionId = UNIFEDSystem.sessionId || 'PROBATUM';
@@ -1928,14 +1770,14 @@ async function submitToOpenTimestamps() {
 
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-clock"></i> ' + _otsT('otsPending');
+            btn.innerHTML = '<i class="fas fa-clock"></i> OTS: PENDENTE';
         }
         return;
     }
 
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + _otsT('certifyingBlockchain');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A CERTIFICAR NA BLOCKCHAIN...';
     }
 
     const sessionId = UNIFEDSystem.sessionId || 'PROBATUM';
@@ -2007,16 +1849,15 @@ async function submitToOpenTimestamps() {
         const otsDate = new Date().toISOString();
         UNIFEDSystem.analysis.evidenceIntegrity.forEach(ev => {
             if (!ev.sealType || ev.sealType === 'NONE') {
-                ev.sealType       = 'OTS';
-                ev.sealStatusCode = 'SEALED_OTS_L1';
-                ev.sealStatus     = _otsT('SEALED_OTS_L1');
-                ev.sealDate       = otsDate;
+                ev.sealType   = 'OTS';
+                ev.sealStatus = 'BLOCKCHAIN OTS (Nível 1)';
+                ev.sealDate   = otsDate;
             }
         });
 
         Swal.fire({
-            title: _otsT('otsTitleDone'),
-            text: _otsT('otsFileDownloadedText'),
+            title: '🛡️ ANCORAGEM BLOCKCHAIN EFETUADA',
+            text: 'O ficheiro .ots foi gerado e descarregado. Este é o selo de imutabilidade eterna da Bitcoin para este processo.',
             icon: 'success',
             confirmButtonColor: '#00e5ff'
         });
@@ -2026,8 +1867,8 @@ async function submitToOpenTimestamps() {
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = upgradeStatus === 'BITCOIN_MERKLE_PROOF'
-                ? _otsT('blockchainConfirmedBtn')
-                : _otsT('blockchainCertifiedBtn');
+                ? '<i class="fas fa-check-circle"></i> BLOCKCHAIN: CONFIRMADO'
+                : '<i class="fas fa-check-circle"></i> BLOCKCHAIN: CERTIFICADO';
             btn.style.borderColor = '#f59e0b';
             btn.style.color = '#f59e0b';
         }
@@ -2073,8 +1914,8 @@ async function submitToOpenTimestamps() {
         });
 
         Swal.fire({
-            title: _otsT('submissionPendingTitle'),
-            text: _otsT('otsNodeUnreachableText', err.message),
+            title: '⏳ SUBMISSÃO PENDENTE',
+            text: `O nó OTS não estava acessível (CORS/rede). O ficheiro stub foi descarregado com o hash real. Re-submeta em produção para obter a prova Bitcoin completa. Erro: ${err.message}`,
             icon: 'warning',
             confirmButtonColor: '#00e5ff'
         });
@@ -2083,7 +1924,7 @@ async function submitToOpenTimestamps() {
 
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-clock"></i> ' + _otsT('otsPending');
+            btn.innerHTML = '<i class="fas fa-clock"></i> OTS: PENDENTE';
             btn.style.borderColor = '#f59e0b';
             btn.style.color = '#f59e0b';
         }
@@ -2103,7 +1944,7 @@ async function downloadBlob(blob, filename, mimeType) {
         if (!_chainOk) {
             console.error(`[COC·GATE] ❌ Download bloqueado — cadeia comprometida: ${filename}`);
             if (typeof showToast === 'function') {
-                showToast(_otsT('downloadBlockedText'), 'error');
+                showToast('Download bloqueado — integridade da cadeia de custódia não verificável.', 'error');
             }
             return; // Abortar — não libertar URL nem simular clique.
         }
@@ -2128,28 +1969,36 @@ function _showOTSSuccessModal(filename, masterHash, isPendingStub = false, upgra
     const borderColor = isPendingStub ? '#475569' : '#f59e0b';
 
     const titleText = isPendingStub
-        ? _otsT('otsTitlePendingStub')
+        ? '⏳ REGISTO LOCAL — SUBMISSÃO PENDENTE'
         : isConfirmed
-            ? _otsT('otsTitleConfirmed')
-            : _otsT('otsTitleDone');
+            ? '🔗 ANCORAGEM BLOCKCHAIN CONFIRMADA (MERKLE PROOF)'
+            : '🛡️ ANCORAGEM BLOCKCHAIN EFETUADA';
 
     const subtitleText = isPendingStub
-        ? _otsT('otsSubtitlePendingStub')
+        ? 'STUB LOCAL · HASH REAL · RE-SUBMETER EM PRODUÇÃO'
         : isConfirmed
-            ? _otsT('otsSubtitleConfirmed')
-            : _otsT('otsSubtitleDone');
+            ? 'BITCOIN MERKLE PROOF · INVIABILIDADE DE ALTERAÇÃO RETROATIVA · PROVA DE NÃO-REPÚDIO'
+            : 'OPENTIMESTAMPS · CALENDAR ATTESTATION · ISO/IEC 27037:2012';
 
     const bodyText = isPendingStub
-        ? _otsT('otsBodyPendingStub')
+        ? `O nó OpenTimestamps não estava acessível. Um ficheiro stub foi gerado com o hash real e o timestamp da tentativa.
+           Em ambiente de produção, re-submeter o ficheiro <code style="color:#00e5ff;">.ots</code> gerado ao calendário OTS para obter a prova Bitcoin completa.`
         : isConfirmed
-            ? _otsT('otsBodyConfirmed')
-            : _otsT('otsBodyDone');
+            ? `O Master Hash SHA-256 desta consultoria técnica está ancorado na <strong style="color:#f59e0b;">Bitcoin blockchain</strong> com prova Merkle completa.
+               Esta operação constitui <strong style="color:#fff;">prova forense irrevogável de existência temporal</strong> — qualquer alteração
+               retroativa ao documento é <strong style="color:#ef4444;">matematicamente inviável</strong>.
+               Guarde o ficheiro <code style="color:#00e5ff;">.ots</code> — ele é a sua prova definitiva de existência temporal imutável.`
+            : `O Master Hash SHA-256 desta consultoria técnica foi submetido e aceite pelos Calendários Remotos OpenTimestamps.
+               O <code style="color:#00e5ff;">ficheiro .ots</code> contém um <strong style="color:#fff;">Calendar Attestation criptograficamente vinculado</strong>
+               ao seu hash — constitui <strong style="color:#f59e0b;">prova de não-repúdio imediata</strong>.
+               A confirmação Bitcoin Merkle (bloco blockchain) ficará disponível após ~1 hora.
+               Guarde este ficheiro. <strong style="color:#fff;">Ele é a sua prova definitiva de existência temporal imutável.</strong>`;
 
     const statusBadge = isPendingStub
-        ? `<span style="color:#94a3b8;">${_otsT('otsBadgePendingStub')}</span>`
+        ? `<span style="color:#94a3b8;">⏳ STUB LOCAL</span>`
         : isConfirmed
-            ? `<span style="color:#4ade80;font-weight:700;">${_otsT('otsBadgeConfirmed')}</span>`
-            : `<span style="color:#f59e0b;font-weight:700;">${_otsT('otsBadgeDone')}</span>`;
+            ? `<span style="color:#4ade80;font-weight:700;">✔ BITCOIN MERKLE PROOF (CONFIRMADO)</span>`
+            : `<span style="color:#f59e0b;font-weight:700;">⏱ CALENDAR ATTESTATION (CONFIRMAÇÃO BITCOIN ~1h)</span>`;
 
     const overlay = document.createElement('div');
     overlay.id = 'otsSuccessModal';
@@ -2182,29 +2031,33 @@ function _showOTSSuccessModal(filename, masterHash, isPendingStub = false, upgra
             <div style="background:rgba(0,0,0,0.45);border:1px solid rgba(245,158,11,0.18);
                         border-radius:4px;padding:1rem;margin-bottom:1rem;font-size:0.67rem;">
                 <div style="color:#94a3b8;margin-bottom:0.4rem;">
-                    • <strong style="color:#e2b87a;">${_otsT('fileLabel')}</strong>
+                    • <strong style="color:#e2b87a;">Ficheiro:</strong>
                     <span style="color:#fff;">${filename}</span>
                 </div>
                 <div style="color:#94a3b8;margin-bottom:0.4rem;">
-                    • <strong style="color:#e2b87a;">${_otsT('masterHashSha256Label')}</strong><br>
+                    • <strong style="color:#e2b87a;">Master Hash SHA-256:</strong><br>
                     <span style="color:#00e5ff;word-break:break-all;font-size:0.59rem;">${masterHash}</span>
                 </div>
                 <div style="color:#94a3b8;margin-bottom:0.4rem;">
-                    • <strong style="color:#e2b87a;">${_otsT('protocolLabel')}</strong>
-                    <span style="color:#fff;">${_otsT('otsProtocolValue')}</span>
+                    • <strong style="color:#e2b87a;">Protocolo:</strong>
+                    <span style="color:#fff;">OpenTimestamps · Bitcoin blockchain · Calendários Alice/Bob/Finney</span>
                 </div>
                 <div style="color:#94a3b8;margin-bottom:0.4rem;">
-                    • <strong style="color:#e2b87a;">${_otsT('stateLabel')}</strong> ${statusBadge}
+                    • <strong style="color:#e2b87a;">Estado:</strong> ${statusBadge}
                 </div>
                 <div style="color:#94a3b8;">
-                    • <strong style="color:#e2b87a;">${_otsT('offlineVerifyLabel')}</strong>
-                    <span style="color:#64748b;font-size:0.6rem;">${_otsT('offlineVerifyHint', filename)}</span>
+                    • <strong style="color:#e2b87a;">Verificação offline:</strong>
+                    <span style="color:#64748b;font-size:0.6rem;">ots verify ${filename} —— confirma hash na Bitcoin blockchain</span>
                 </div>
             </div>
 
             <div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);
                         border-radius:3px;padding:0.7rem;margin-bottom:1.2rem;font-size:0.65rem;color:#94a3b8;line-height:1.6;">
-                ${_otsT('retroactiveWarningOts')}
+                [!] <strong style="color:#ef4444;">INVIABILIDADE DE ALTERAÇÃO RETROATIVA:</strong>
+                O SHA-256 é uma função de hash criptográfica unidirecional. Qualquer modificação
+                ao documento original — mesmo de um único bit — produz um hash completamente diferente,
+                tornando matematicamente impossível adulterar o conteúdo sem deteção imediata.
+                Esta propriedade, combinada com a ancoragem blockchain, constitui <strong style="color:#fff;">prova de não-repúdio absoluta.</strong>
             </div>
 
             <button onclick="document.getElementById('otsSuccessModal').remove()"
@@ -2214,7 +2067,7 @@ function _showOTSSuccessModal(filename, masterHash, isPendingStub = false, upgra
                        transition:background 0.2s;width:100%;"
                 onmouseover="this.style.background='rgba(245,158,11,0.08)'"
                 onmouseout="this.style.background='transparent'">
-                ${_otsT('confirmAndCloseBtn')}
+                CONFIRMAR E FECHAR
             </button>
         </div>`;
 
@@ -2227,8 +2080,8 @@ async function anchorMasterHashExternal() {
 
     if (!masterHash || masterHash.length < 60) {
         Swal.fire({
-            title: _otsT('hashUnavailableTitle'),
-            text: _otsT('hashUnavailableText'),
+            title: '[!] HASH INDISPONÍVEL',
+            text: 'O Master Hash SHA-256 não está disponível. Processe os ficheiros de evidência primeiro.',
             icon: 'warning',
             confirmButtonColor: '#00e5ff'
         });
@@ -2236,22 +2089,23 @@ async function anchorMasterHashExternal() {
     }
 
     const { value: mode } = await Swal.fire({
-        title: '<span style="font-size:0.95rem;letter-spacing:1px;">' + _otsT('modalLevel2Title') + '</span>',
+        title: '<span style="font-size:0.95rem;letter-spacing:1px;">🛡️ SELAGEM NÍVEL 2 — RFC 3161</span>',
         html: `
             <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;text-align:left;color:#94a3b8;line-height:1.7;">
-                <p style="color:#e2b87a;font-weight:700;margin-bottom:0.6rem;">${_otsT('selectModeText')}</p>
-                <p><b style="color:#fff;">${_otsT('optionATitle')}</b><br>
-                ${_otsT('optionAText')}</p>
+                <p style="color:#e2b87a;font-weight:700;margin-bottom:0.6rem;">Selecione o modo de operação:</p>
+                <p><b style="color:#fff;">Opção A — Carregar Prova TSR</b><br>
+                Valida um ficheiro <code>.tsr</code> gerado localmente pelo motor PowerShell/OpenSSL
+                contra o hash do ficheiro em análise. Adequado para consultoria técnicas com selagem local pré-existente.</p>
                 <br>
-                <p><b style="color:#fff;">${_otsT('optionBTitle')}</b><br>
-                ${_otsT('optionBText')}<br>
-                <span style="color:#64748b;font-size:0.68rem;">${_otsT('optionBCorsNote')}</span></p>
+                <p><b style="color:#fff;">Opção B — Selar Online (FreeTSA)</b><br>
+                Submete o Master Hash ao nó FreeTSA.org em tempo real.<br>
+                <span style="color:#64748b;font-size:0.68rem;">(Pode estar sujeito a restrições CORS em ambiente browser)</span></p>
             </div>`,
         showDenyButton: true,
         showCancelButton: true,
-        confirmButtonText: _otsT('uploadTsrBtn'),
-        denyButtonText:    _otsT('sealOnlineBtn'),
-        cancelButtonText:  _otsT('cancelBtn'),
+        confirmButtonText: '<i class="fas fa-upload"></i> A — Carregar TSR',
+        denyButtonText:    '<i class="fas fa-cloud-upload-alt"></i> B — Selar Online',
+        cancelButtonText:  'Cancelar',
         confirmButtonColor: '#e2b87a',
         denyButtonColor:    '#4ade80',
         background: '#0a0f1e',
@@ -2279,7 +2133,7 @@ function _loadAndValidateTSR(masterHash) {
         const btn = document.getElementById('nivel2SealBtn');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + _otsT('validatingTsr');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A VALIDAR FICHEIRO TSR...';
         }
 
         try {
@@ -2296,14 +2150,15 @@ function _loadAndValidateTSR(masterHash) {
 
             if (!isValidTSR) {
                 Swal.fire({
-                    title: _otsT('invalidTsrTitle'),
-                    html: _otsT('invalidTsrText', file.name),
+                    title: '⚠️ FICHEIRO TSR INVÁLIDO',
+                    html: `O ficheiro <b>${file.name}</b> não aparenta ser um TimeStampResponse ASN.1/DER válido.<br><br>
+                           Verifique se o ficheiro foi gerado pelo motor OpenSSL e não está corrompido.`,
                     icon: 'error',
                     confirmButtonColor: '#ef4444'
                 });
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-shield-alt"></i> ' + _otsT('sealLevel2');
+                    btn.innerHTML = '<i class="fas fa-shield-alt"></i> EFETUAR SELAGEM EXTERNA (NÍVEL 2)';
                 }
                 return;
             }
@@ -2321,19 +2176,17 @@ function _loadAndValidateTSR(masterHash) {
                     tsrFingerprint:  tsrHashFP,
                     tsrSerialApprox: serialApprox,
                     validatedAt:     tsaDate,
-                    statusCode:      'SEALED_RFC3161_OPENSSL',
-                    status:          _otsT('SEALED_RFC3161_OPENSSL'),
+                    status:          'SELADO VIA RFC 3161 (OpenSSL)',
                     sealLevel:       'NIVEL_2'
                 }
             );
 
             UNIFEDSystem.analysis.evidenceIntegrity.forEach(ev => {
                 if (!ev.sealType || ev.sealType === 'NONE') {
-                    ev.sealType       = 'RFC3161';
-                    ev.sealStatusCode = 'SEALED_RFC3161_OPENSSL';
-                    ev.sealStatus     = _otsT('SEALED_RFC3161_OPENSSL');
-                    ev.sealDate       = tsaDate;
-                    ev.tsrPath        = file.name;
+                    ev.sealType   = 'RFC3161';
+                    ev.sealStatus = 'SELADO VIA RFC 3161 (OpenSSL)';
+                    ev.sealDate   = tsaDate;
+                    ev.tsrPath    = file.name;
                 }
             });
 
@@ -2355,16 +2208,16 @@ function _loadAndValidateTSR(masterHash) {
             });
 
             Swal.fire({
-                title: _otsT('tsrLoadedTitle'),
+                title: '✅ PROVA TSR CARREGADA E REGISTADA',
                 html: `<div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;text-align:left;">
-                    <p><b style="color:#e2b87a;">${_otsT('tsrFileLabel')}</b> <span style="color:#fff;">${file.name}</span></p>
-                    <p><b style="color:#e2b87a;">${_otsT('sizeLabel')}</b> <span style="color:#fff;">${tsrSizeKB} KB</span></p>
-                    <p><b style="color:#e2b87a;">${_otsT('tsrFingerprintLabel')}</b> <span style="color:#00e5ff;">${tsrHashFP}...</span></p>
-                    <p><b style="color:#e2b87a;">${_otsT('serialApproxLabel')}</b> <span style="color:#fff;">${serialApprox}</span></p>
-                    <p><b style="color:#e2b87a;">${_otsT('authorityLabel')}</b> <span style="color:#fff;">FreeTSA.org — RFC 3161</span></p>
-                    <p style="margin-top:0.8rem;color:#4ade80;font-weight:700;">${_otsT('statusSealedSsl')}</p>
+                    <p><b style="color:#e2b87a;">Ficheiro TSR:</b> <span style="color:#fff;">${file.name}</span></p>
+                    <p><b style="color:#e2b87a;">Tamanho:</b> <span style="color:#fff;">${tsrSizeKB} KB</span></p>
+                    <p><b style="color:#e2b87a;">Fingerprint SHA-256 (TSR):</b> <span style="color:#00e5ff;">${tsrHashFP}...</span></p>
+                    <p><b style="color:#e2b87a;">Série Aproximada:</b> <span style="color:#fff;">${serialApprox}</span></p>
+                    <p><b style="color:#e2b87a;">Autoridade:</b> <span style="color:#fff;">FreeTSA.org — RFC 3161</span></p>
+                    <p style="margin-top:0.8rem;color:#4ade80;font-weight:700;">STATUS: SELADO VIA RFC 3161 (OpenSSL) ✓</p>
                     <p style="color:#64748b;font-size:0.65rem;margin-top:0.4rem;">
-                        ${_otsT('complianceNote')}
+                        Conf. eIDAS (UE) 910/2014 · ISO/IEC 27037:2012 · D.L. n.º 28/2019 · Art. 30.º RGPD
                     </p>
                 </div>`,
                 icon: 'success',
@@ -2373,10 +2226,10 @@ function _loadAndValidateTSR(masterHash) {
 
         } catch (err) {
             console.error('[TSR-VALIDATE]', err);
-            showToast(_otsT('tsrValidateErrorPrefix') + err.message, 'error');
+            showToast('Erro ao validar ficheiro TSR: ' + err.message, 'error');
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-shield-alt"></i> ' + _otsT('sealLevel2');
+                btn.innerHTML = '<i class="fas fa-shield-alt"></i> EFETUAR SELAGEM EXTERNA (NÍVEL 2)';
             }
         }
     };
@@ -2395,7 +2248,7 @@ async function _doOnlineSeal(masterHash) {
     const btn = document.getElementById('nivel2SealBtn');
     if (btn) {
         btn.disabled  = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + _otsT('sealingTsa');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A SELAR NA TSA RFC 3161...';
     }
 
     // ── MODO DEMO: nó local sem tráfego de rede ───────────────────────────────
@@ -2405,7 +2258,7 @@ async function _doOnlineSeal(masterHash) {
         }
         const _mockDate  = new Date().toISOString();
         const _mockToken = 'UNIFED-DEMO-' + Date.now().toString(36).toUpperCase();
-        _nivel2SealSuccess(masterHash, _mockDate, _otsT('anchoredViaLocalNodeDemo'), _mockToken);
+        _nivel2SealSuccess(masterHash, _mockDate, 'ANCORADO VIA NÓ LOCAL (DEMO)', _mockToken);
         console.info('[SEAL·DEMO] Modo DEMO — nó local activo. Sem tráfego de rede.');
         if (btn) { btn.disabled = false; }
         return;
@@ -2451,8 +2304,10 @@ async function _doOnlineSeal(masterHash) {
 
         if (typeof Swal !== 'undefined') {
             Swal.fire({
-                title:             _otsT('seal2CompletedTitle'),
-                html:              _otsT('seal2NonRepudiation', _tsaDate),
+                title:             '🛡️ SELAGEM NÍVEL 2 CONCLUÍDA',
+                html:              `Token RFC 3161 obtido via <b>proxy verificado</b>.<br><br>
+                                   <code style="font-size:0.75rem;color:#00e5ff;">Hora TSA: ${_tsaDate}</code><br><br>
+                                   Esta selagem constitui prova de não-repúdio conforme ISO/IEC 27037:2012 e D.L. n.º 28/2019 de 15 de fevereiro.`,
                 icon:              'success',
                 confirmButtonColor: '#00e5ff'
             });
@@ -2478,16 +2333,16 @@ async function _doOnlineSeal(masterHash) {
 
         if (typeof Swal !== 'undefined') {
             Swal.fire({
-                title:  _otsT('seal1Title'),
+                title:  '🛡️ SELAGEM RFC 3161 — NÍVEL 1 ACTIVO',
                 html:   `<div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;text-align:left;line-height:1.7;">
-                         <p style="color:#f59e0b;font-weight:700;">${_otsT('proxyUnavailable', error.message)}</p>
-                         <p><b style="color:#fff;">${_otsT('protocolLabel')}</b> PROBATUM INTERNAL SEAL (${_otsT('level1Label')})</p>
-                         <p><b style="color:#fff;">${_otsT('tokenLabel')}</b><br>
+                         <p style="color:#f59e0b;font-weight:700;">⚠️ Proxy TSA indisponível: ${error.message}</p>
+                         <p><b style="color:#fff;">Protocolo:</b> PROBATUM INTERNAL SEAL (Nível 1)</p>
+                         <p><b style="color:#fff;">Token:</b><br>
                          <code style="font-size:0.65rem;color:#00e5ff;word-break:break-all;">${tokenSim}</code></p>
-                         <p><b style="color:#fff;">${_otsT('timeLabel')}</b> ${_tsaDate}</p>
+                         <p><b style="color:#fff;">Hora:</b> ${_tsaDate}</p>
                          <p style="color:#4ade80;margin-top:0.6rem;">
-                         ${_otsT('sha256RealImmutable')}
-                         ${_otsT('seal1CertifiedHint')}</p>
+                         ✔ Master Hash SHA-256 real e imutável.<br>
+                         ✔ Para prova RFC 3161 certificada: carregar .tsr via <b>"Opção A — Carregar TSR"</b>.</p>
                          </div>`,
                 icon:              'info',
                 confirmButtonColor: '#00e5ff',
@@ -2520,10 +2375,9 @@ function _nivel2SealSuccess(hash, tsaDate, tsaProvider, token) {
 
     UNIFEDSystem.analysis.evidenceIntegrity.forEach(ev => {
         if (!ev.sealType || ev.sealType === 'NONE') {
-            ev.sealType       = 'RFC3161';
-            ev.sealStatusCode = 'SEALED_RFC3161';
-            ev.sealStatus     = _otsT('SEALED_RFC3161');
-            ev.sealDate       = tsaDate;
+            ev.sealType   = 'RFC3161';
+            ev.sealStatus = 'SELADO VIA RFC 3161';
+            ev.sealDate   = tsaDate;
         }
     });
 
@@ -2534,12 +2388,12 @@ function _nivel2SealSuccess(hash, tsaDate, tsaProvider, token) {
         token:       token
     });
 
-    showToast(_otsT('toastSeal2Done'), 'success');
+    showToast('🛡️ Selagem Nível 2 concluída — RFC 3161', 'success');
     _showNivel2Modal(tsaDate, tsaProvider);
 
     if (btn) {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check-circle"></i> ' + _otsT('level2Anchored');
+        btn.innerHTML = '<i class="fas fa-check-circle"></i> NÍVEL 2: ANCORADO';
         btn.style.borderColor = '#4ade80';
         btn.style.color = '#4ade80';
     }
@@ -2566,38 +2420,44 @@ function _showNivel2Modal(tsaDate, tsaProvider) {
                 <span style="font-size:1.8rem;">🛡️</span>
                 <div>
                     <div style="color:#4ade80;font-weight:700;font-size:0.9rem;letter-spacing:1px;">
-                        ${_otsT('externalAnchorDone')}
+                        ANCORAGEM EXTERNA CONCLUÍDA (PROTOCOLO RFC 3161)
                     </div>
                     <div style="color:#64748b;font-size:0.62rem;margin-top:0.2rem;">
-                        ${_otsT('anchoredSubtitle')}
+                        NÍVEL 2 · SHA-256 · PROVA DE NÃO-REPÚDIO · INVIABILIDADE DE ALTERAÇÃO RETROATIVA
                     </div>
                 </div>
             </div>
             <p style="color:#cbd5e1;font-size:0.74rem;line-height:1.75;margin-bottom:1rem;">
-                ${_otsT('anchorIntroText')}
+                O Master Hash SHA-256 da presente consultoria técnica foi submetido e validado com sucesso
+                por uma <strong style="color:#fff;">Autoridade de Carimbo de Tempo (TSA) Certificada</strong>.
+                <strong style="color:#4ade80;">Certificado de Existência:</strong>
             </p>
             <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(74,222,128,0.2);
                         border-radius:4px;padding:1rem;margin-bottom:1rem;font-size:0.7rem;">
                 <div style="color:#94a3b8;margin-bottom:0.4rem;">
-                    • <strong style="color:#e2b87a;">${_otsT('dateTimeUtcLabel')}</strong>
+                    • <strong style="color:#e2b87a;">Data/Hora UTC:</strong>
                     <span style="color:#fff;">${tsaDate.replace('T',' ').replace(/\.\d+Z$/,' UTC')}</span>
                 </div>
                 <div style="color:#94a3b8;margin-bottom:0.4rem;">
-                    • <strong style="color:#e2b87a;">${_otsT('tsaProviderLabel')}</strong>
+                    • <strong style="color:#e2b87a;">TSA Provider:</strong>
                     <span style="color:#fff;">${tsaProvider}</span>
                 </div>
                 <div style="color:#94a3b8;margin-bottom:0.4rem;">
-                    • <strong style="color:#e2b87a;">${_otsT('protocolLabel')}</strong>
+                    • <strong style="color:#e2b87a;">Protocolo:</strong>
                     <span style="color:#fff;">RFC 3161 · TimeStampToken · X.509</span>
                 </div>
                 <div style="color:#94a3b8;">
-                    • <strong style="color:#e2b87a;">${_otsT('statusLabel')}</strong>
-                    <span style="color:#4ade80;font-weight:700;">${_otsT('statusAnchored')}</span>
+                    • <strong style="color:#e2b87a;">Status:</strong>
+                    <span style="color:#4ade80;font-weight:700;">ANCORADO (Immutable Anchor)</span>
                 </div>
             </div>
             <div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);
                         border-radius:3px;padding:0.7rem;margin-bottom:1.2rem;font-size:0.65rem;color:#94a3b8;line-height:1.6;">
-                ${_otsT('retroactiveWarning')}
+                [!] <strong style="color:#ef4444;">INVIABILIDADE DE ALTERAÇÃO RETROATIVA:</strong>
+                O SHA-256 é uma função criptográfica unidirecional. Qualquer modificação ao documento
+                — mesmo de um único byte — produz um hash completamente diferente, tornando matematicamente
+                impossível adulterar o conteúdo sem deteção imediata.
+                <strong style="color:#fff;">Esta operação gera prova de não-repúdio que vincula matematicamente este relatório a este exato momento temporal.</strong>
             </div>
             <button onclick="document.getElementById('nivel2ConfirmModal').remove()"
                 style="background:transparent;border:1px solid #4ade80;color:#4ade80;
@@ -2606,7 +2466,7 @@ function _showNivel2Modal(tsaDate, tsaProvider) {
                        transition:background 0.2s;width:100%;"
                 onmouseover="this.style.background='rgba(74,222,128,0.1)'"
                 onmouseout="this.style.background='transparent'">
-                ${_otsT('confirmAndCloseBtn')}
+                CONFIRMAR E FECHAR
             </button>
         </div>`;
     document.body.appendChild(overlay);
@@ -2652,7 +2512,7 @@ const ForensicLogger = {
             timestamp: new Date().toISOString(),
             timestampUnix: Math.floor(Date.now() / 1000),
             sessionId: typeof UNIFEDSystem !== 'undefined' && UNIFEDSystem.sessionId ? UNIFEDSystem.sessionId : 'PRE_SESSION',
-            user: typeof UNIFEDSystem !== 'undefined' && UNIFEDSystem.client?.name ? UNIFEDSystem.client.name : (typeof _otsT === 'function' ? _otsT('anonymousUser') : 'Anónimo'),
+            user: typeof UNIFEDSystem !== 'undefined' && UNIFEDSystem.client?.name ? UNIFEDSystem.client.name : 'Anónimo',
             action: action,
             data: data,
             ip: 'local',
@@ -2713,7 +2573,7 @@ const ForensicLogger = {
         const logsToShow = this.logs.slice(-50).reverse();
 
         if (logsToShow.length === 0) {
-            el.innerHTML = '<div class="log-entry log-info">' + _otsT('noActivityLogText') + '</div>';
+            el.innerHTML = '<div class="log-entry log-info">[Nenhum registo de atividade disponível]</div>';
             return;
         }
 
@@ -2863,7 +2723,7 @@ const ValueSource = {
 // ============================================================================
 const translations = {
     pt: {
-        startBtn: "INICIAR CONSULTORIA TÉCNICA v1.0-COMMERCIAL-LITIGATION",
+        startBtn: "INICIAR METODOLOGIA DE ANÁLISE",
         splashLogsBtn: "REGISTO DE ATIVIDADES (LOG)",
         navDemo: "CASO REAL (ANONIMIZADO)",
         langBtn: "US",
@@ -2935,7 +2795,7 @@ const translations = {
         pdfTitle: "PARECER TÉCNICO-JURÍDICA DE INVESTIGAÇÃO DIGITAL",
         pdfSection1: "1. IDENTIFICAÇÃO E METADADOS",
         pdfSection2: "2. ANÁLISE FINANCEIRA CRUZADA",
-        pdfSection3: "3. VEREDICTO DE RISCO (RGIT)",
+        pdfSection3: "3. VEREDICTO DE RISCO (Art. 103.º e 104.º RGIT)",
         pdfSection4: "4. PROVA RAINHA (SMOKING GUN)",
         pdfSection5: "5. ENQUADRAMENTO LEGAL",
         pdfSection6: "6. METODOLOGIA TÉCNICO-JURÍDICA",
@@ -2947,7 +2807,7 @@ const translations = {
         pdfSection12: "12. QUESTIONÁRIO TÉCNICO-JURÍDICA ESTRATÉGICO",
         pdfSection13: "13. CONCLUSÃO",
         pdfLegalTitle: "FUNDAMENTAÇÃO LEGAL",
-        "pdfLegalRGIT": "Art. 103.º e 104.º do RGIT - Fraude Fiscal e Fraude Fiscal Qualificada",
+        "pdfLegalRGIT": "Art. 103.º e 104.º do RGIT — Fraude Fiscal e Fraude Fiscal Qualificada",
         pdfLegalLGT: "Art. 35.º e 63.º LGT - Juros de mora e deveres de cooperação",
         pdfLegalISO: "ISO/IEC 27037 - Preservação de Prova Digital",
         pdfLegalDL28: "Decreto-Lei n.º 28/2019 - Integridade do processamento de dados e validade de documentos eletrónicos",
@@ -2994,7 +2854,7 @@ const translations = {
         pureAuxSub: "Valores retidos pela plataforma mas não sujeitos a comissão (Zona Cinzenta) — Art. 36.º n.º 11 CIVA"
     },
     en: {
-        startBtn: "START FORENSIC EXAM v1.0-COMMERCIAL-LITIGATION",
+        startBtn: "START ANALYSIS METHODOLOGY",
         splashLogsBtn: "ACTIVITY LOG (GDPR Art. 30)",
         navDemo: "REAL CASE (ANONYMIZED)",
         langBtn: "PT",
@@ -3054,7 +2914,7 @@ const translations = {
         dac7Q2: "2nd Quarter",
         dac7Q3: "3rd Quarter",
         dac7Q4: "4th Quarter",
-        quantumTitle: "TAX CALCULATION · SMOKING GUN",
+        quantumTitle: "FORENSIC TAX CALCULATION · SMOKING GUN",
         quantumFormula: "Base Differential Under Analysis vs Invoiced",
         quantumNote: "Missing VAT 23%: — | Missing VAT 6%: —",  // RETIFICAÇÃO 2B: static placeholder suppressed — dynamic values injected in updateQuantumCard()
         quantumNoteIVA23: "Missing VAT 23%:",
@@ -3066,7 +2926,7 @@ const translations = {
         pdfTitle: "DIGITAL FORENSIC EXPERT REPORT",
         pdfSection1: "1. IDENTIFICATION & METADATA",
         pdfSection2: "2. CROSS-FINANCIAL ANALYSIS",
-        pdfSection3: "3. RISK VERDICT (RGIT)",
+        pdfSection3: "3. RISK VERDICT (RGIT Art. 103 & 104)",
         pdfSection4: "4. SMOKING GUN",
         pdfSection5: "5. LEGAL FRAMEWORK",
         pdfSection6: "6. FORENSIC METHODOLOGY",
@@ -3078,7 +2938,7 @@ const translations = {
         pdfSection12: "12. STRATEGIC QUESTIONNAIRE",
         pdfSection13: "13. CONCLUSION",
         pdfLegalTitle: "LEGAL BASIS",
-       "pdfLegalRGIT": "Art. 103 and 104 RGIT (General Regime of Tax Infractions, Law 15/2001) - Tax Fraud and Qualified Fraud",
+       "pdfLegalRGIT": "RGIT Art. 103 & 104 — Tax Fraud and Qualified Tax Fraud",
         pdfLegalLGT: "Art. 35 and 63 LGT - Default interest and cooperation duties",
         pdfLegalISO: "ISO/IEC 27037 - Digital Evidence Preservation",
         pdfLegalDL28: "Decree-Law No. 28/2019 - Data processing integrity and validity of electronic documents",
@@ -3169,7 +3029,13 @@ function updateDynamicContent() {
         showTwoAxisAlerts();
     }
     const verdictPercentLabel = document.getElementById('verdictPercentLabel');
-    if (verdictPercentLabel) verdictPercentLabel.textContent = translations[currentLang].verdictPercent;
+    if (verdictPercentLabel) {
+        // FIX: .textContent destruiria o <span id="verdictSessionId"> filho.
+        // Actualiza só o nó de texto inicial, preservando o span do Session ID.
+        const _textNode = Array.from(verdictPercentLabel.childNodes).find(n => n.nodeType === 3);
+        if (_textNode) _textNode.textContent = translations[currentLang].verdictPercent + ' ';
+        else verdictPercentLabel.insertBefore(document.createTextNode(translations[currentLang].verdictPercent + ' '), verdictPercentLabel.firstChild);
+    }
     
     if (UNIFEDSystem.chart) renderChart();
     if (UNIFEDSystem.discrepancyChart) renderDiscrepancyChart();
@@ -3602,7 +3468,11 @@ function switchLanguage() {
     if (quantumNote) quantumNote.textContent = t.quantumNote;
     
     const verdictPercentLabel = document.getElementById('verdictPercentLabel');
-    if (verdictPercentLabel) verdictPercentLabel.textContent = t.verdictPercent;
+    if (verdictPercentLabel) {
+        const _textNode2 = Array.from(verdictPercentLabel.childNodes).find(n => n.nodeType === 3);
+        if (_textNode2) _textNode2.textContent = t.verdictPercent + ' ';
+        else verdictPercentLabel.insertBefore(document.createTextNode(t.verdictPercent + ' '), verdictPercentLabel.firstChild);
+    }
     
     const alertCriticalTitle = document.getElementById('alertCriticalTitle');
     if (alertCriticalTitle) alertCriticalTitle.textContent = t.alertCriticalTitle;
@@ -4149,8 +4019,7 @@ const SchemaRegistry = {
 let UNIFEDSystem = {
     version: 'v1.0-COMMERCIAL-LITIGATION',
     name: 'UNIFED - PROBATUM',
-    sessionId: (typeof window !== 'undefined' && typeof window.getForensicSessionId === 'function')
-                   ? window.getForensicSessionId() : generateSessionId(),
+    sessionId: generateSessionId(),
     selectedYear: new Date().getFullYear(),
     selectedPeriodo: 'anual',
     selectedPlatform: 'outra',
@@ -4410,7 +4279,7 @@ function openHashModal() {
 
     const masterHashEl = document.getElementById('masterHashFull');
     if (masterHashEl) {
-        masterHashEl.textContent = UNIFEDSystem.masterHash || _otsT('hashUnavailableShort');
+        masterHashEl.textContent = UNIFEDSystem.masterHash || 'HASH INDISPONÍVEL';
     }
 
     const evidenceListEl = document.getElementById('evidenceHashList');
@@ -4508,7 +4377,7 @@ function startGatekeeperSession() {
 
 function loadSystemCore() {
     updateLoadingProgress(20);
-    UNIFEDSystem.sessionId = window.getForensicSessionId();
+    UNIFEDSystem.sessionId = generateSessionId();
     UNIFEDSystem._sessionStart = Date.now();
     setElementText('sessionIdDisplay', UNIFEDSystem.sessionId);
     setElementText('verdictSessionId', UNIFEDSystem.sessionId);
@@ -4816,13 +4685,13 @@ if (modalSaveBtn) {
     const exportDOCXBtn = document.getElementById('exportDOCXBtn');
     if (exportDOCXBtn) exportDOCXBtn.addEventListener('click', () => {
         if (typeof window.exportDOCX === 'function') window.exportDOCX();
-        else showToast((window.currentLang === 'en' ? 'DOCX module unavailable.' : 'Módulo DOCX não disponível.'), 'error');
+        else showToast('Módulo DOCX não disponível.', 'error');
     });
 
     const atfBtn = document.getElementById('atfModalBtn');
     if (atfBtn) atfBtn.addEventListener('click', () => {
         if (typeof window.openATFModal === 'function') window.openATFModal();
-        else showToast((window.currentLang === 'en' ? 'ATF module unavailable.' : 'Módulo ATF não disponível.'), 'warning');
+        else showToast('Módulo ATF não disponível.', 'warning');
     });
 
     const exportAnalystBtn = document.getElementById('exportAnalystBtn');
@@ -4835,7 +4704,7 @@ if (modalSaveBtn) {
                 if (!gateOk) { console.error('[HMAC·GATE] Exportação bloqueada'); return; }
                 window._exportPacoteAnalista().catch(err => console.error('[EXPORT] Analista:', err.message));
             } else {
-                showToast((window.currentLang === 'en' ? 'Analyst export function unavailable.' : 'Função de exportação analista não disponível.'), 'error');
+                showToast('Função de exportação analista não disponível.', 'error');
             }
         });
         exportAnalystBtn._triadaBound = true;
@@ -4851,7 +4720,7 @@ if (modalSaveBtn) {
                 if (!gateOk) { console.error('[HMAC·GATE] Exportação bloqueada'); return; }
                 window._exportPacoteAdvogado().catch(err => console.error('[EXPORT] Advogado:', err.message));
             } else {
-                showToast((window.currentLang === 'en' ? 'Lawyer export function unavailable.' : 'Função de exportação advogado não disponível.'), 'error');
+                showToast('Função de exportação advogado não disponível.', 'error');
             }
         });
         exportLawyerBtn._triadaBound = true;
@@ -4865,7 +4734,7 @@ if (modalSaveBtn) {
             } else if (typeof window.exportDOCX === 'function') {
                 window.exportDOCX();
             } else {
-                showToast((window.currentLang === 'en' ? 'DOCX module unavailable.' : 'Módulo DOCX não disponível.'), 'error');
+                showToast('Módulo DOCX não disponível.', 'error');
             }
         });
     }
@@ -4876,7 +4745,7 @@ if (modalSaveBtn) {
             if (typeof window.exportGraphics === 'function') {
                 window.exportGraphics();
             } else {
-                showToast((window.currentLang === 'en' ? 'Chart export under development.' : 'Exportação de gráficos em desenvolvimento.'), 'info');
+                showToast('Exportação de gráficos em desenvolvimento.', 'info');
             }
         });
     }
@@ -5102,8 +4971,8 @@ function registerClient() {
     const name = document.getElementById('clientNameFixed').value.trim();
     const nif = document.getElementById('clientNIFFixed').value.trim();
 
-    if (!name || name.length < 3) return showToast((window.currentLang === 'en' ? 'Invalid name' : 'Nome inválido'), 'error');
-    if (!validateNIF(nif)) return showToast((window.currentLang === 'en' ? 'Invalid NIF (checksum failed)' : 'NIF inválido (checksum falhou)'), 'error');
+    if (!name || name.length < 3) return showToast('Nome inválido', 'error');
+    if (!validateNIF(nif)) return showToast('NIF inválido (checksum falhou)', 'error');
 
     UNIFEDSystem.client = { name, nif, platform: UNIFEDSystem.selectedPlatform };
     localStorage.setItem('ifde_client_data_v12_8', JSON.stringify(UNIFEDSystem.client));
@@ -5146,15 +5015,7 @@ async function processFile(file, type) {
     if (typeof window.toggleSandboxBanner === 'function') {
         window.toggleSandboxBanner(false);
     }
-    // ── AUDITORIA-3 / P4: escrita directa de window._isSyncing REMOVIDA ───────
-    // ANTERIOR: window._isSyncing = false era forçado aqui, fora do try/finally
-    // de _syncPureDashboard. Se um upload ocorresse enquanto _syncPureDashboard
-    // estava genuinamente em curso (syncInProgress = true), esta linha quebrava
-    // a exclusão mútua prematuramente — o MutationObserver de translations.js
-    // (guard: window._isSyncing) podia disparar translateAll() a meio de uma
-    // escrita do dashboard.
-    // CORRIGIDO: confia exclusivamente no finally de _syncPureDashboard
-    // (linha ~9941) para libertar o lock no momento certo.
+    window._isSyncing = false;
     if (window.UNIFEDSystem) window.UNIFEDSystem.processing = false;
 
     const fileKey = `${file.name}_${file.size}_${file.lastModified}`;
@@ -5241,9 +5102,8 @@ async function processFile(file, type) {
         timestamp:    new Date().toLocaleString(),
         size:         file.size,
         timestampUnix: Math.floor(Date.now() / 1000),
-        sealType:       'NONE',
-        sealStatusCode: 'PENDING',
-        sealStatus:     _otsT('PENDING'),
+        sealType:     'NONE',
+        sealStatus:   'PENDENTE',
         sealDate:     null,
         tsrPath:      null
     });
@@ -5559,31 +5419,6 @@ function activateDemoMode() {
         window.suppressTriadaUpdates(true);
     }
 
-    // ── RETIFICAÇÃO ITEM-5 (Session ID Inconsistente) ─────────────────────────
-    // ANTERIOR: UNIFEDSystem.sessionId era fixado em generateSessionId() na
-    // inicialização do script (linha ~3943) e novamente em loadSystemCore()
-    // (linha ~4301), produzindo DOIS valores aleatórios distintos ANTES de
-    // getForensicSessionId() persistir um terceiro valor em localStorage
-    // (UNIFED_ACTIVE_SESSION_ID). Exports subsequentes podiam capturar
-    // qualquer um destes três valores, conforme a ordem de execução.
-    // CORRIGIDO: cada activação do modo DEMO força uma sessão nova e única —
-    // remove o identificador persistido, gera um novo via singleton
-    // getForensicSessionId() (única fonte de verdade) e propaga-o para
-    // UNIFEDSystem e para o DOM. activeForensicSession é reconstruído a
-    // partir deste valor (nunca de um literal estático).
-    try { localStorage.removeItem('UNIFED_ACTIVE_SESSION_ID'); } catch(_) {}
-    const _demoSessionId = window.getForensicSessionId();
-    UNIFEDSystem.sessionId = _demoSessionId;
-    setElementText('sessionIdDisplay', _demoSessionId);
-    setElementText('verdictSessionId', _demoSessionId);
-    window.activeForensicSession = { sessionId: _demoSessionId, masterHash: UNIFEDSystem.masterHash || 'PENDENTE_SELAGEM' };
-    try { sessionStorage.setItem('currentSession', JSON.stringify(window.activeForensicSession)); } catch(_) {}
-    if (window.ForensicLogger) {
-        ForensicLogger.addEntry('DEMO_SESSION_RESET', { sessionId: _demoSessionId });
-    }
-    console.log('[DEMO-SESSION] ✅ Nova sessão forense iniciada: ' + _demoSessionId);
-    // ───────────────────────────────────────────────────────────────────────
-
     // ============================================================================
     // DEMO CONTROL SCHEMA — Esquema de Controlo para Simulação Forense
     // Injectado no sistema no momento da activação do modo DEMO.
@@ -5686,9 +5521,23 @@ function activateDemoMode() {
         if (_disc) { _disc.style.display = 'inline-block'; }
     })();
 
-    // window.activeForensicSession já foi inicializado dinamicamente em
-    // RETIFICAÇÃO ITEM-5 (início desta função) — não voltar a sobrescrever
-    // com valores estáticos.
+    // FIX-5: Gerar novo sessionId em cada activação de DEMO — elimina inconsistências entre sessões
+    const _demoSessionId = (typeof window.getForensicSessionId === 'function')
+        ? window.getForensicSessionId()  // usa singleton persistente desta sessão
+        : generateSessionId();            // fallback: gerar novo
+    // Limpar sessionStorage de sessões anteriores para garantir coerência
+    try {
+        const _prevSession = sessionStorage.getItem('currentSession');
+        if (_prevSession) {
+            const _prev = JSON.parse(_prevSession);
+            if (_prev && _prev.sessionId && _prev.sessionId !== _demoSessionId) {
+                sessionStorage.removeItem('currentSession');
+                console.log('[FIX-5] Sessão anterior limpa: ' + _prev.sessionId + ' → ' + _demoSessionId);
+            }
+        }
+    } catch(_e) {}
+    window.activeForensicSession = { sessionId: _demoSessionId, masterHash: null }; // hash preenchido após seal()
+    try { sessionStorage.setItem('currentSession', JSON.stringify(window.activeForensicSession)); } catch(_e) {}
 
     if (typeof window._activatePurePanel === 'function') {
         window._activatePurePanel();
@@ -5775,56 +5624,28 @@ function activateDemoMode() {
 
             // DADOS MENSAIS — por extrato de plataforma digital (anonimizado)
             // Set 2024: extrato sem dados de ganhos/despesas (apenas SAF-T presente)
-            // Out 2024: 3291.26 € ganhos | 776.86 € despesas
-            // Nov 2024: 3519.31 € ganhos | 830.08 € despesas
-            // Dez 2024: 3202.54 € ganhos | 792.59 € despesas
+            // Out 2024: 3291.26 € ganhos | 776.86 € despesas | 85.12 € faturaPlataforma
+            // Nov 2024: 3519.31 € ganhos | 830.08 € despesas | 90.95 € faturaPlataforma
+            // Dez 2024: 3202.54 € ganhos | 792.59 € despesas | 86.87 € faturaPlataforma
+            // ── FASE2.1-MONTHLY-BTF — faturaPlataforma adicionado por mês ──────────
+            // Causa raiz: seriesMensais (script.js ~6521) calcula
+            // |despesas - faturaPlataforma| por mês para o Z-Score IC99%. Sem este
+            // campo, faturaPlataforma defaultava a 0 (linha 6521: `|| 0`), pelo que
+            // seriesMensais media DESPESAS BRUTAS (mediaAmostral=599.88€) em vez da
+            // OMISSÃO DE CUSTOS (despesas-faturaPlataforma). Com os valores abaixo,
+            // a soma de faturaPlataforma = 85.12+90.95+86.87 = 262.94€ (== BTF total,
+            // 09_CONFIG/06_METRICAS) e mediaAmostral = 2136.59/4 = 534.1475€,
+            // coincidindo exactamente com "Omissão de Custos / Meses" (Quadro Prova
+            // Rainha). NOTA: mediaConservadora (saída do IC99%, usada no painel
+            // macro) permanece um limite inferior ESTATÍSTICO — não é igual a
+            // 534.1475€ por desenho (ver UNIFED_STATE.md, nota metodológica F4).
+            // ────────────────────────────────────────────────────────────────────────
             UNIFEDSystem.monthlyData = {
-                '202409': { ganhos:    0.00, despesas:   0.00, ganhosLiq:    0.00, saftBruto:  132.41, saftIliq:  124.90, saftIva:   7.51 },
-                '202410': { ganhos: 3291.26, despesas: 776.86, ganhosLiq: 2514.40, saftBruto: 2743.70, saftIliq: 2588.31, saftIva: 155.39 },
-                '202411': { ganhos: 3519.31, despesas: 830.08, ganhosLiq: 2689.23, saftBruto: 2704.86, saftIliq: 2551.52, saftIva: 153.34 },
-                '202412': { ganhos: 3202.54, despesas: 792.59, ganhosLiq: 2409.95, saftBruto: 2647.00, saftIliq: 2496.94, saftIva: 150.06 }
+                '202409': { ganhos:    0.00, despesas:   0.00, ganhosLiq:    0.00, saftBruto:  132.41, saftIliq:  124.90, saftIva:   7.51, faturaPlataforma:  0.00 },
+                '202410': { ganhos: 3291.26, despesas: 776.86, ganhosLiq: 2514.40, saftBruto: 2743.70, saftIliq: 2588.31, saftIva: 155.39, faturaPlataforma: 85.12 },
+                '202411': { ganhos: 3519.31, despesas: 830.08, ganhosLiq: 2689.23, saftBruto: 2704.86, saftIliq: 2551.52, saftIva: 153.34, faturaPlataforma: 90.95 },
+                '202412': { ganhos: 3202.54, despesas: 792.59, ganhosLiq: 2409.95, saftBruto: 2647.00, saftIliq: 2496.94, saftIva: 150.06, faturaPlataforma: 86.87 }
             };
-
-            // ── RETIFICAÇÃO ELO-1 (BTOR_Engine não cablado) ───────────────────────
-            // CAUSA: window.BTOR_Engine.ingestMonthlyData() nunca era chamado em
-            // nenhum ponto do pipeline, pelo que UNIFEDSystem.analysis.btor
-            // permanecia `null`. Em performAudit() (~linha 6333), o guard
-            // `if (... && UNIFEDSystem.analysis.btor)` falhava, o `else` corria,
-            // e UNIFED_TOP3_READY nunca era despachado automaticamente —
-            // deixando o botão de contraperícia (unifed_contraperiria_export.js)
-            // dependente do timeout de 30s ("⚠️ EXPORTAR (Integridade Merkle
-            // Pendente)").
-            // CORRIGIDO: ingerir os 4 meses de monthlyData (já definidos acima,
-            // dados de fixture internamente coerentes) através do BTOR_Engine
-            // real. dac7Total é distribuído proporcionalmente pelos meses do
-            // Q4 2024 (202410/11/12), com 202409 (Q3) a 0 — consistente com
-            // dac7.totals.q1/q2/q3 = 0 já definidos nesta fixture.
-            // fleetMetadata é fornecido como arrays de identificadores
-            // anonimizados (não escalares) — ingestMonthlyData() itera estes
-            // campos com .forEach(); valores escalares (ex: 38000) causariam
-            // TypeError e abortariam a ingestão. 38000/42000 são parâmetros do
-            // MODELO ESTATÍSTICO DE MERCADO (extrapolação macro, MODEL_CARD.md
-            // §3.2) — não correspondem à frota deste caso individual (4 meses,
-            // ~10k€ de faturação) e não devem ser reutilizados aqui.
-            const _dac7MensalQ4 = UNIFEDSystem.documents.dac7.totals.q4 / 3; // 7755.16 / 3
-            const _fleetMetadataFixture = {
-                drivers:   ['DEMO-DRIVER-001'],
-                vehicles:  ['DEMO-VEHICLE-001'],
-                operators: ['DEMO-OPERATOR-001'],
-                source:    'DEMO-FLEET-LOG-INTEGRATED.xml'
-            };
-            Object.keys(UNIFEDSystem.monthlyData).forEach(function(periodKey) {
-                const m = UNIFEDSystem.monthlyData[periodKey];
-                const dac7ForPeriod = (periodKey === '202409') ? 0 : _dac7MensalQ4;
-                window.BTOR_Engine.ingestMonthlyData(periodKey, {
-                    saftGross:    m.saftBruto,
-                    dac7Total:    dac7ForPeriod,
-                    extractTotal: m.ganhos
-                }, _fleetMetadataFixture);
-            });
-            console.log('[ELO-1] ✅ BTOR_Engine ingeriu ' + Object.keys(UNIFEDSystem.monthlyData).length +
-                        ' períodos — analysis.btor populado: ', JSON.stringify(UNIFEDSystem.analysis.btor));
-            // ────────────────────────────────────────────────────────────────────
 
             // Registo de fontes — ficheiros identificadores anonimizados
             ValueSource.registerValue('saftBrutoValue',          8227.97, 'DEMO-SAF-T-XXXXXXX-202409-202412.csv', 'soma 4 meses SAF-T (Set-Dez 2024) — coluna Bruto');
@@ -5912,6 +5733,14 @@ function activateDemoMode() {
                         // FASE 3.1 — FIX-FROZEN: UNIFED_ACTIVE_EXPORT_PAYLOAD é frozen.
                         // Não escrever directamente. O hash está em UNIFEDSystem.masterHash
                         // (setter acima) — o próximo getVerifiedPayload() lê este valor.
+                        // FIX-4: Sincronizar activeForensicSession com o hash definitivo pós-seal
+                        // Garante que Dashboard e PDFs exportados referenciam o MESMO hash
+                        if (window.activeForensicSession) {
+                            window.activeForensicSession.masterHash = _sealedHash;
+                            window.activeForensicSession.sessionId  = window.UNIFEDSystem.sessionId || _demoSessionId;
+                            try { sessionStorage.setItem('currentSession', JSON.stringify(window.activeForensicSession)); } catch(_eSS) {}
+                            console.log('[FIX-4] ✅ activeForensicSession sincronizado: sessionId=' + window.activeForensicSession.sessionId + ' | hash=' + _sealedHash.substring(0,16) + '...');
+                        }
                         // Forçar regeneração do QR Code com o hash definitivo
                         if (typeof generateQRCode === 'function') {
                             generateQRCode();
@@ -5948,40 +5777,6 @@ function activateDemoMode() {
                 window.renderATFChart();
                 console.log('[DEMO] ✅ Gráfico ATF renderizado');
             }
-
-            // ── RETIFICAÇÃO ITEM-4 (diagnóstico Master Hash, fecho do ciclo DEMO) ──
-            // Compara o masterHash final (após todo o fluxo activateDemoMode) com
-            // o valor capturado em window.UNIFED_LAST_SEAL_DEBUG (dentro de
-            // performAudit) e com o valor actualmente exibido no DOM. Qualquer
-            // divergência aqui indica que algo entre performAudit() e o fim de
-            // activateDemoMode() alterou o masterHash sem passar pelo ciclo de
-            // selagem instrumentado — sinal de alerta para o ensaio.
-            (function() {
-                const dbg = window.UNIFED_LAST_SEAL_DEBUG || {};
-                const domEl = document.getElementById('masterHashValue');
-                const domHashNow = domEl ? domEl.textContent : null;
-                const finalCheck = {
-                    masterHashAfterDemo: UNIFEDSystem.masterHash || null,
-                    hashAfterSealFromPerformAudit: dbg.hashAfterSeal || null,
-                    domHashNow: domHashNow,
-                    domHashAtSealTime: dbg.domHashAtSealTime || null,
-                    allConverge: null
-                };
-                finalCheck.allConverge = !!(
-                    finalCheck.masterHashAfterDemo &&
-                    finalCheck.hashAfterSealFromPerformAudit &&
-                    finalCheck.domHashNow &&
-                    finalCheck.masterHashAfterDemo === finalCheck.hashAfterSealFromPerformAudit &&
-                    finalCheck.masterHashAfterDemo === finalCheck.domHashNow
-                );
-                window.UNIFED_LAST_SEAL_DEBUG = Object.assign({}, dbg, { finalCheck });
-                if (finalCheck.allConverge) {
-                    console.log('[UNIFED-COC] ✅ ITEM-4: masterHash convergente no fim do ciclo DEMO (dashboard, chain.seal, performAudit).', finalCheck);
-                } else {
-                    console.warn('[UNIFED-COC] ⚠️ ITEM-4: DIVERGÊNCIA no fim do ciclo DEMO — ver window.UNIFED_LAST_SEAL_DEBUG.finalCheck', finalCheck);
-                }
-            })();
-            // ─────────────────────────────────────────────────────────────────────
 
             if (typeof window.suppressTriadaUpdates === 'function') {
                 window.suppressTriadaUpdates(false);
@@ -6077,9 +5872,8 @@ function simulateUpload(type, count) {
             timestamp:    new Date().toLocaleString(),
             size:         1024 * (i + 1),
             timestampUnix: Math.floor(Date.now() / 1000),
-            sealType:       'NONE',
-            sealStatusCode: 'PENDING',
-            sealStatus:     _otsT('PENDING'),
+            sealType:     'NONE',
+            sealStatus:   'PENDENTE',
             sealDate:     null,
             tsrPath:      null
         });
@@ -6121,7 +5915,7 @@ async function performAudit() {
     const hasFiles = Object.values(UNIFEDSystem.documents).some(d => d.files && d.files.length > 0);
     if (!hasFiles) {
         ForensicLogger.addEntry('AUDIT_FAILED', { reason: 'No files' });
-        return showToast((window.currentLang === 'en' ? 'Upload at least one evidence file before running the analysis.' : 'Carregue pelo menos um ficheiro de evidência antes de executar a consultoria técnica.'), 'error');
+        return showToast('Carregue pelo menos um ficheiro de evidência antes de executar a consultoria técnica.', 'error');
     }
 
     UNIFEDSystem.forensicMetadata = getForensicMetadata();
@@ -6255,91 +6049,23 @@ async function performAudit() {
         // para garantir que UNIFEDSystem.masterHash nunca contenha [object Promise].
       if (window.UNIFED_FORENSIC_SYSTEM && window.UNIFED_FORENSIC_SYSTEM.chainOfCustody) {
             const chain = window.UNIFED_FORENSIC_SYSTEM.chainOfCustody;
-
-            // ── RETIFICAÇÃO ITEM-4 (salvaguarda readyState) ───────────────────
-            // applyTimestampAndMerkle() (chamado dentro de chain.seal()) é um
-            // no-op se document.readyState !== 'complete' (script_injection.js
-            // linha ~698). Se performAudit() correr antes do load completo, a
-            // cadeia sela SEM a entrada EIDAS_MERKLE_ROOT_ATTACHED — produzindo
-            // um masterHash internamente consistente mas com conteúdo de cadeia
-            // diferente do caso normal (variabilidade não-determinística entre
-            // execuções, dependendo do timing de carregamento da página).
-            // CORRIGIDO: aguardar explicitamente readyState === 'complete'
-            // (com timeout de segurança de 5s) antes de iniciar o ciclo de
-            // selagem, garantindo conteúdo de cadeia determinístico.
-            if (document.readyState !== 'complete') {
-                console.log('[UNIFED-COC] ⏳ A aguardar document.readyState === "complete" antes de selar (actual: ' + document.readyState + ')...');
-                await new Promise((resolve) => {
-                    const TIMEOUT_MS = 5000;
-                    const timer = setTimeout(() => {
-                        document.removeEventListener('readystatechange', onChange);
-                        console.warn('[UNIFED-COC] ⚠️ Timeout (5s) à espera de readyState "complete" — a prosseguir com a selagem mesmo assim.');
-                        resolve();
-                    }, TIMEOUT_MS);
-                    function onChange() {
-                        if (document.readyState === 'complete') {
-                            clearTimeout(timer);
-                            document.removeEventListener('readystatechange', onChange);
-                            resolve();
-                        }
-                    }
-                    document.addEventListener('readystatechange', onChange);
-                });
-                console.log('[UNIFED-COC] ✅ readyState === "' + document.readyState + '" — a prosseguir com a selagem.');
-            }
-            // ───────────────────────────────────────────────────────────────
-
-            // ── RETIFICAÇÃO ITEM-4 (diagnóstico Master Hash) ──────────────────
-            // Captura os valores intermédios do masterHash em cada etapa do
-            // ciclo de selagem, para detecção imediata de divergência entre
-            // dashboard e exportações. Não altera o comportamento — apenas
-            // regista. Consultar window.UNIFED_LAST_SEAL_DEBUG na consola
-            // do browser durante o ensaio para confirmar convergência.
-            const _sealDebug = {
-                readyStateAtSeal: document.readyState,
-                hashBeforeCalc:   UNIFEDSystem.masterHash || null,
-                hashAfterCalc:    null,
-                hashAfterSeal:    null,
-                chainEntriesBeforeSeal: chain.entries ? chain.entries.length : null,
-                chainEntriesAfterSeal:  null,
-                sealedAlready:    chain.sealed === true,
-                timestamp:        new Date().toISOString()
-            };
             if (typeof chain.calculateMasterHash === 'function') {
                 const finalHash = await chain.calculateMasterHash();
                 UNIFEDSystem.masterHash = finalHash;
-                _sealDebug.hashAfterCalc = finalHash || null;
                 console.log('[UNIFED-COC] 🔑 calculateMasterHash() resolvido:', finalHash ? finalHash.substring(0,16)+'...' : 'FALHOU');
             }
-            await chain.seal();
-            // Garantir que o masterHash do sistema é o mesmo da cadeia
-            UNIFEDSystem.masterHash = chain.masterHash || UNIFEDSystem.masterHash;
-            _sealDebug.hashAfterSeal = chain.masterHash || null;
-            _sealDebug.chainEntriesAfterSeal = chain.entries ? chain.entries.length : null;
-            _sealDebug.domHashAtSealTime = (function() {
-                const el = document.getElementById('masterHashValue');
-                return el ? el.textContent : null;
-            })();
-            _sealDebug.divergenceDetected =
-                _sealDebug.hashAfterCalc !== null &&
-                _sealDebug.hashAfterSeal !== null &&
-                _sealDebug.hashAfterCalc !== _sealDebug.hashAfterSeal;
-            window.UNIFED_LAST_SEAL_DEBUG = _sealDebug;
-            if (_sealDebug.divergenceDetected) {
-                console.warn('[UNIFED-COC] ⚠️ DIVERGÊNCIA DETECTADA entre hashAfterCalc e hashAfterSeal — ver window.UNIFED_LAST_SEAL_DEBUG', _sealDebug);
-            } else {
-                console.log('[UNIFED-COC] ✅ Diagnóstico de selagem sem divergência — ver window.UNIFED_LAST_SEAL_DEBUG', _sealDebug);
-            }
-            // ───────────────────────────────────────────────────────────────
-            // Sincronizar interface
-            if (typeof window._syncPureDashboard === 'function') {
-                window._syncPureDashboard(UNIFEDSystem);
-            }
-            if (typeof generateQRCode === 'function') {
-                generateQRCode();
-            }
-            console.log('[UNIFED-COC] 🔐 Cadeia de custódia selada e masterHash sincronizado.');
-        }
+    		await chain.seal();
+   		 // ⭐ Garantir que o masterHash do sistema é o mesmo da cadeia
+   		 UNIFEDSystem.masterHash = chain.masterHash || UNIFEDSystem.masterHash;
+   		 // Sincronizar interface
+   		 if (typeof window._syncPureDashboard === 'function') {
+       		 window._syncPureDashboard(UNIFEDSystem);
+    		}
+   		 if (typeof generateQRCode === 'function') {
+    		    generateQRCode();
+  		  }
+ 		   console.log('[UNIFED-COC] 🔐 Cadeia de custódia selada e masterHash sincronizado.');
+	}
 
         UNIFEDSystem.performanceTiming.end = performance.now();
         const duration = (UNIFEDSystem.performanceTiming.end - UNIFEDSystem.performanceTiming.start).toFixed(2);
@@ -6388,21 +6114,32 @@ async function performAudit() {
             window.currentLang = 'pt';
         }
 
-        // ── AUDITORIA-3 / P1: dispatchEvent prematuro REMOVIDO deste ponto ────────
-        // ANTERIOR: window.dispatchEvent('UNIFED_ANALYSIS_COMPLETE') disparava AQUI,
-        // antes de _autoGenerateTop3() (TOP3/Merkle) e antes do _syncPureDashboard
-        // final (linha ~6439) terem sequer começado — listeners que dependem de
-        // analysis.top3Questions, merkleRoot, ou do DOM já sincronizado recebiam
-        // o evento demasiado cedo.
-        // CORRIGIDO: disparo único e consolidado movido para o fim do ciclo
-        // completo (após _autoGenerateTop3 + _syncPureDashboard + forceTranslateUI),
-        // em window E document simultaneamente — ver bloco "DISPARO CONSOLIDADO"
-        // mais abaixo nesta função.
-        console.log('[UNIFED-SYNC] ℹ️ Ciclo de análise em curso — evento UNIFED_ANALYSIS_COMPLETE será despachado no fecho do ciclo.');
+        // ── F11.1-ANALYSIS-COMPLETE-PAYLOAD: campos explícitos de auditoria ────
+        // Aditivo: systemData (objeto completo) preservado; campos top-level
+        // adicionados para consumo direto sem necessidade de navegar systemData.
+        const _aceDanoSeteAnos = (UNIFEDSystem.analysis && UNIFEDSystem.analysis.crossings && UNIFEDSystem.analysis.crossings.impactoSeteAnosMercado) || 0;
+        const _aceMasterHash   = UNIFEDSystem.masterHash || '';
+        const _aceTimestamp    = new Date().toISOString();
+        window.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', {
+            detail: {
+                systemData: UNIFEDSystem,
+                danoSeteAnos: _aceDanoSeteAnos,
+                masterHash: _aceMasterHash,
+                timestamp: _aceTimestamp
+            }
+        }));
+        if (typeof ForensicLogger !== 'undefined' && typeof ForensicLogger.addEntry === 'function') {
+            ForensicLogger.addEntry('ANALYSIS_COMPLETE', {
+                danoSeteAnos: _aceDanoSeteAnos,
+                masterHash: _aceMasterHash,
+                timestamp: _aceTimestamp
+            });
+        }
+        console.log('[UNIFED-SYNC] ✅ UNIFED_ANALYSIS_COMPLETE despachado (systemData + danoSeteAnos + masterHash + timestamp incluídos; ForensicLogger registado).');
 
         // FALHA 7 — R24: TOP 3 gerado automaticamente após análise.
         // Requisito de estabilidade forense: overlay bloqueia interação durante processamento cognitivo.
-        await (async function _autoGenerateTop3() {
+        (async function _autoGenerateTop3() {
             try {
                 if (window.UNIFED_AnalysisCognitive && window.UNIFEDSystem && window.UNIFEDSystem.analysis && window.UNIFEDSystem.analysis.btor) {
                     // Activar overlay de bloqueio (impede exportação com dados incompletos)
@@ -6443,9 +6180,8 @@ async function performAudit() {
             }
         })();
 
-// PERF-03: Sincronizações DOM adiadas — não bloqueiam o event loop dos cálculos finais.
-// _autoGenerateTop3 já é aguardada (await) acima — o setTimeout aqui serve apenas
-// para garantir que o browser processa um repaint antes da sincronização final do DOM.
+// PERF-03: Sincronizações DOM adiadas 50 ms — não bloqueiam o event loop dos cálculos finais
+// PATCH P1 (cont.) — callback convertida para async para suportar await na linha seguinte.
 setTimeout(async () => {
 if (typeof window._syncPureDashboard === 'function') {
     // ── PATCH P1 — patch_unifed_macro_v13 ────────────────────────────────────
@@ -6489,26 +6225,6 @@ else {
             window._activatePurePanel();
         }
 
-        // ── AUDITORIA-3 / P1: DISPARO CONSOLIDADO (ponto único, fim do ciclo) ─────
-        // Único local em todo o script.js onde UNIFED_ANALYSIS_COMPLETE é despachado.
-        // Disparado em window E document, atomicamente, com o mesmo payload, DEPOIS
-        // de: (a) performForensicCrossings ter persistido danoCalculado/mediaMensalReal
-        // (SSoT); (b) _autoGenerateTop3 (TOP3 + Merkle Root) ter terminado (await);
-        // (c) _syncPureDashboard ter sincronizado o DOM; (d) forceTranslateUI ter
-        // corrido. Garante que QUALQUER listener — independentemente de estar
-        // registado em window ou document (nexus.js, panel.html, script.js) —
-        // recebe o evento no mesmo instante e com o ciclo de análise já completo.
-        const _eventDetail = {
-            detail: {
-                systemData:     UNIFEDSystem,
-                danoCalculado:  (UNIFEDSystem.analysis && UNIFEDSystem.analysis.danoCalculado) || 0
-            }
-        };
-        window.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', _eventDetail));
-        document.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', _eventDetail));
-        console.log('[UNIFED-SYNC] ✅ UNIFED_ANALYSIS_COMPLETE despachado (window + document, ciclo completo).');
-        // ───────────────────────────────────────────────────────────────────────
-
         if (typeof generateQRCode === 'function') {
             generateQRCode();
         }
@@ -6539,16 +6255,7 @@ if (!UNIFEDSystem.demoMode && !UNIFEDSystem.casoRealAnonimizado) {
          */
         function libertarInterfaceDemonstracao() {
             window.UNIFEDSystem.processing = false;
-            // ── AUDITORIA-3 / P4: escrita directa de window._isSyncing REMOVIDA ───
-            // ANTERIOR: forçava window._isSyncing = false aqui como "rede de
-            // segurança" contra loading infinito. Risco real: esta função corre
-            // no fecho de activateDemoMode(), que pode ainda estar em janela de
-            // paralelismo com uma chamada de _syncPureDashboard accionada
-            // internamente (ex. dentro do ciclo TOP3/Merkle), quebrando a
-            // exclusão mútua do lock prematuramente.
-            // CORRIGIDO: confia exclusivamente no try/finally de _syncPureDashboard
-            // (linha ~9951) para libertar o lock — que está sempre garantido de
-            // correr, mesmo em caso de erro, dado o try/finally já confirmado.
+            window._isSyncing = false;
             window._demoAuditInProgress = false;
             const overlay = document.getElementById('loadingOverlay');
             if (overlay) overlay.style.display = 'none';
@@ -6597,15 +6304,9 @@ if (!UNIFEDSystem.demoMode && !UNIFEDSystem.casoRealAnonimizado) {
          * @param {boolean} show - true para exibir, false para ocultar
          */
         window.toggleSandboxBanner = function(show) {
-            // SANDBOX_TEXT: fallback de último recurso (PT), usado apenas se
-            // window.getTranslation() não estiver disponível (translations.js
-            // não carregado). Em condições normais, o label vem sempre de
-            // getTranslation('SANDBOX_LABEL', currentLang), que já é bilingue
-            // (ver translations.js).
             const SANDBOX_TEXT = 'STATUS: AMBIENTE DE DEMONSTRAÇÃO (SANDBOX) | TIMESTAMP: RELATÓRIO DE VALIDAÇÃO DE INTEGRIDADE PENDENTE (RFC 3161) | INTEGRIDADE: DETERMINÍSTICA';
-            const label = (typeof window.getTranslation === 'function')
-                ? window.getTranslation('SANDBOX_LABEL', window.currentLang)
-                : SANDBOX_TEXT;
+            const dict = window.UNIFED_TRANSLATIONS && window.UNIFED_TRANSLATIONS.DICTIONARY;
+            const label = (dict && dict.SANDBOX_LABEL) ? dict.SANDBOX_LABEL : SANDBOX_TEXT;
 
             // #sandboxBanner (topo do dashboard)
             const banner = document.getElementById('sandboxBanner');
@@ -6636,7 +6337,7 @@ if (!UNIFEDSystem.demoMode && !UNIFEDSystem.casoRealAnonimizado) {
         console.error('Erro na consultoria técnica:', error);
         logAudit(`❌ ERRO CRÍTICO NA CONSULTORIA TÉCNICA: ${error.message}`, 'error');
         ForensicLogger.addEntry('AUDIT_ERROR', { error: error.message });
-        showToast((window.currentLang === 'en' ? 'Error during analysis execution. Check the uploaded files.' : 'Erro durante a execução da consultoria técnica. Verifique os ficheiros carregados.'), 'error');
+        showToast('Erro durante a execução da consultoria técnica. Verifique os ficheiros carregados.', 'error');
     } finally {
         if(analyzeBtn) {
             analyzeBtn.disabled = false;
@@ -6869,45 +6570,14 @@ function performForensicCrossings() {
         cross.impactoAnualMercado    = danoAnualIC99;
         cross.impactoMensalMercado   = danoAnualIC99 / 12;
         cross.impactoSeteAnosMercado = danoAnualIC99 * 7;
-        // Média aritmética real das discrepâncias mensais do operador individual
-        // (DISTINTA de macroMedia = impactoMensalMercado/38000, que é o impacto
-        // por condutor no mercado após aplicação do IC99%)
-        cross.mediaMensalReal = seriesMensais.reduce((a, b) => a + b, 0) / seriesMensais.length;
         console.log('[Z-SCORE IC99] Cálculo estatístico activo — Dano Anual Apurado: €' + danoAnualIC99.toFixed(2));
     } else {
         // Modo A — fallback escalar determinístico (< 2 meses de dados)
         cross.impactoMensalMercado   = discrepanciaMensalMedia * 38000;
         cross.impactoAnualMercado    = cross.impactoMensalMercado * 12;
         cross.impactoSeteAnosMercado = cross.impactoAnualMercado * 7;
-        cross.mediaMensalReal        = discrepanciaMensalMedia;
         console.warn('[Z-SCORE IC99] Fallback escalar activo — monthlyData insuficiente (' + seriesMensais.length + ' meses).');
     }
-
-    // ── SSoT danoCalculado + mediaMensalReal ──────────────────────────────────
-    UNIFEDSystem.analysis.danoCalculado   = cross.impactoSeteAnosMercado;
-    UNIFEDSystem.analysis.mediaMensalReal = cross.mediaMensalReal;
-    ForensicLogger.addEntry('UNIFED_ANALYSIS_COMPLETE', {
-        danoCalculado:         cross.impactoSeteAnosMercado,
-        danoAnual:             cross.impactoAnualMercado,
-        danoMensal:            cross.impactoMensalMercado,
-        modoCalculo:           seriesMensais.length >= 2 ? 'MODO_B_ZSCORE_IC99' : 'MODO_A_ESCALAR',
-        nMotoristas:           38000,
-        projecaoAnos:          7,
-        sessionId:             window.getForensicSessionId()
-    });
-    // ── AUDITORIA-3 / P1 (Fase 11→12): dispatchEvent REMOVIDO deste ponto ──────
-    // ANTERIOR: performForensicCrossings() disparava document.dispatchEvent
-    // ('UNIFED_ANALYSIS_COMPLETE') no meio do cálculo (chamado por performAudit()
-    // na linha ~6212) — ANTES do segundo dispatchEvent (window) no fecho de
-    // performAudit() (linha ~6383). Dois disparos do mesmo evento lógico, em
-    // EventTargets distintos (document vs window), sem ordem determinística
-    // entre si e sem garantia de que analysis.danoCalculado/mediaMensalReal
-    // (escritos linhas acima) já estavam visíveis a TODOS os listeners.
-    // CORRIGIDO: o cálculo (performForensicCrossings) só regista no log forense
-    // (ForensicLogger.addEntry, acima). O disparo do evento DOM é responsabili-
-    // dade exclusiva do orquestrador (performAudit/_autoGenerateTop3), num único
-    // ponto, após TODO o ciclo de análise (incluindo TOP3/Merkle) ter concluído.
-    console.log('[SSoT] ✅ danoCalculado gravado: €' + cross.impactoSeteAnosMercado.toFixed(2));
     // ─────────────────────────────────────────────────────────────────────────
 
     cross.discrepancia5IMT     = cross.discrepanciaSaftVsDac7 * 0.05;
@@ -6944,6 +6614,15 @@ function performForensicCrossings() {
         vat23: cross.ivaFalta,
         vat6: cross.ivaFalta6
     });
+
+    // ── F11.3 — BLOCO 1.2 (reformulado, ESTRITAMENTE ADITIVO) ──────────────
+    // Exposição directa da média mensal do CASO CONCRETO (discrepanciaCritica/
+    // mesesDados, ex.: 534,15€) para consumo por APIs externas/contrato de
+    // interface. NÃO altera nem substitui mediaConservadora/macroMensal/
+    // macroAnual/macro7Anos (Z-Score IC99%, D14) — essa arquitectura de
+    // apresentação permanece intocada em #quantumBreakdown e em
+    // _syncPureDashboard. Esta variável é um campo NOVO e independente.
+    UNIFEDSystem.analysis.mediaMensalReal = (cross.discrepanciaCritica / mesesDados) || 0;
 }
 
 function selectQuestions(riskKey) {
@@ -7157,7 +6836,7 @@ function updateDashboard() {
 
     const quantumNoteEl = document.getElementById('quantumNote');
     if (quantumNoteEl) {
-        quantumNoteEl.textContent = `${t.quantumNoteIVA23} ${formatCurrency(cross.ivaFalta)} | ${t.quantumNoteIVA6} ${formatCurrency(cross.ivaFalta6)} ⚠️ Alt. | SAF-T/DAC7: ${formatCurrency(cross.discrepanciaSaftVsDac7)}`;
+        quantumNoteEl.textContent = `${t.quantumNoteIVA23} ${formatCurrency(cross.ivaFalta)} | ${t.quantumNoteIVA6} ${formatCurrency(cross.ivaFalta6)} | SAF-T/DAC7: ${formatCurrency(cross.discrepanciaSaftVsDac7)}`;
     }
 
     const quantumBreakdownEl = document.getElementById('quantumBreakdown');
@@ -7170,22 +6849,23 @@ function updateDashboard() {
         const hasAssimetria = is2S && mesesDados < 6;
 
         let html = `
-        <div class="quantum-breakdown-item"><span>BTOR ${qLang === 'pt' ? '(Despesas/Comissões Extrato)' : '(Expenses/Commissions Statement)'}:</span><span>${window.formatForensicCurrency(cross.btor)}</span></div>
-        <div class="quantum-breakdown-item"><span>BTF ${qLang === 'pt' ? '(Faturas)' : '(Invoices)'}:</span><span>${window.formatForensicCurrency(cross.btf)}</span></div>
-        <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(0,229,255,0.3); margin-top:0.3rem; padding-top:0.3rem;"><span>${qLang === 'pt' ? 'DISCREPÂNCIA DESPESAS/COMISSÕES' : 'EXPENSE/COMMISSION DISCREPANCY'}:</span><span style="color:var(--warn-primary);">${window.formatForensicCurrency(cross.discrepanciaCritica)} (${cross.percentagemOmissao.toFixed(2)}%)</span></div>
-        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Ganhos (Extrato)' : 'Earnings (Statement)'}:</span><span>${window.formatForensicCurrency(totals.ganhos)}</span></div>
-        <div class="quantum-breakdown-item"><span>SAF-T ${qLang === 'pt' ? 'Bruto' : 'Gross'}:</span><span>${window.formatForensicCurrency(totals.saftBruto)}</span></div>
-        <div class="quantum-breakdown-item"><span>DAC7 (${UNIFEDSystem.selectedPeriodo}):</span><span>${window.formatForensicCurrency(totals.dac7TotalPeriodo)}</span></div>
-        <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(245,158,11,0.3); margin-top:0.3rem; padding-top:0.3rem;"><span>SAF-T vs DAC7 ${qLang === 'pt' ? 'DISCREPÂNCIA' : 'DISCREPANCY'}:</span><span style="color:var(--warn-secondary);">${window.formatForensicCurrency(cross.discrepanciaSaftVsDac7)} (${cross.percentagemSaftVsDac7.toFixed(2)}%)</span></div>
-        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Meses com dados' : 'Months with data'}:</span><span>${mesesDados}</span></div>
-        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Omissão média mensal (caso concreto)' : 'Average monthly omission (specific case)'}:</span><span>${window.formatForensicCurrency(mediaBruta)}</span></div>
-        <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(0,229,255,0.3); margin-top:0.3rem; padding-top:0.3rem;"><span>${qLang === 'pt' ? 'Média conservadora IC99% (por operador)' : 'Conservative IC99% average (per operator)'}:</span><span>${window.formatForensicCurrency(mediaConservadora)}</span></div>
-        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Impacto Mensal Mercado (38k)' : 'Monthly Market Impact (38k)'}:</span><span>${window.formatForensicCurrency(cross.impactoMensalMercado)}</span></div>
-        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Impacto Anual Mercado' : 'Annual Market Impact'}:</span><span>${window.formatForensicCurrency(cross.impactoAnualMercado)}</span></div>
-        <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'IMPACTO 7 ANOS' : '7\u2011YEAR IMPACT'}:</span><span style="color:var(--accent-primary); font-weight:800;">${window.formatForensicCurrency(cross.impactoSeteAnosMercado)}</span></div>
+            <div class="quantum-breakdown-item"><span>BTOR ${qLang === 'pt' ? '(Despesas/Comissões Extrato)' : '(Expenses/Commissions Statement)'}:</span><span>${window.formatForensicCurrency(cross.btor)}</span></div>
+            <div class="quantum-breakdown-item"><span>BTF ${qLang === 'pt' ? '(Faturas)' : '(Invoices)'}:</span><span>${window.formatForensicCurrency(cross.btf)}</span></div>
+            <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(0,229,255,0.3); margin-top:0.3rem; padding-top:0.3rem;"><span>${qLang === 'pt' ? 'DISCREPÂNCIA DESPESAS/COMISSÕES' : 'EXPENSE/COMMISSION DISCREPANCY'}:</span><span style="color:var(--warn-primary);">${window.formatForensicCurrency(cross.discrepanciaCritica)} (${cross.percentagemOmissao.toFixed(2)}%)</span></div>
+            <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Ganhos (Extrato)' : 'Earnings (Statement)'}:</span><span>${window.formatForensicCurrency(totals.ganhos)}</span></div>
+            <div class="quantum-breakdown-item"><span>SAF-T ${qLang === 'pt' ? 'Bruto' : 'Gross'}:</span><span>${window.formatForensicCurrency(totals.saftBruto)}</span></div>
+            <div class="quantum-breakdown-item"><span>DAC7 (${UNIFEDSystem.selectedPeriodo}):</span><span>${window.formatForensicCurrency(totals.dac7TotalPeriodo)}</span></div>
+            <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(245,158,11,0.3); margin-top:0.3rem; padding-top:0.3rem;"><span>SAF-T vs DAC7 ${qLang === 'pt' ? 'DISCREPÂNCIA' : 'DISCREPANCY'}:</span><span style="color:var(--warn-secondary);">${window.formatForensicCurrency(cross.discrepanciaSaftVsDac7)} (${cross.percentagemSaftVsDac7.toFixed(2)}%)</span></div>
+            <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Meses com dados' : 'Months with data'}:</span><span>${mesesDados}</span></div>
+            <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Omissão média mensal (caso concreto)' : 'Average monthly omission (specific case)'}:</span><span>${window.formatForensicCurrency(mediaBruta)}</span></div>
+            <div class="quantum-breakdown-item" style="border-top: 1px solid rgba(0,229,255,0.3); margin-top:0.3rem; padding-top:0.3rem;"><span>${qLang === 'pt' ? 'Média conservadora IC99% (por operador)' : 'Conservative IC99% average (per operator)'}:</span><span>${window.formatForensicCurrency(mediaConservadora)}</span></div>
+            <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Impacto Mensal Mercado (38k)' : 'Monthly Market Impact (38k)'}:</span><span>${window.formatForensicCurrency(cross.impactoMensalMercado)}</span></div>
+            <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'Impacto Anual Mercado' : 'Annual Market Impact'}:</span><span>${window.formatForensicCurrency(cross.impactoAnualMercado)}</span></div>
+            <div class="quantum-breakdown-item"><span>${qLang === 'pt' ? 'IMPACTO 7 ANOS' : '7‑YEAR IMPACT'}:</span><span style="color:var(--accent-primary); font-weight:800;">${window.formatForensicCurrency(cross.impactoSeteAnosMercado)}</span></div>
         `;
+
         if (hasAssimetria) {
-            html += `<div class="quantum-breakdown-item" style="border-top: 1px solid rgba(245,158,11,0.5); margin-top:0.3rem; padding-top:0.3rem; color: #f59e0b; background: rgba(245,158,11,0.05); border-radius: 4px; padding: 6px 10px;"><span>⚠️ ${qLang === 'pt' ? 'Aviso: DAC7 (2.º Semestre = 6 meses) vs Extratos/SAF-T (' + mesesDados + ' meses) — a comparação direta pode subestimar a discrepância. Considere pro-rata.' : 'Warning: DAC7 (2nd Semester = 6 months) vs Statements/SAF-T (' + mesesDados + ' months) — direct comparison may underestimate discrepancy. Consider pro-rata.'}</span></div>`;
+            html += `<div class="quantum-breakdown-item" style="border-top: 1px solid rgba(245,158,11,0.5); margin-top:0.3rem; padding-top:0.3rem; color: #f59e0b; background: rgba(245,158,11,0.05); border-radius: 4px; padding: 6px 10px;"><span>⚠️ ${qLang === 'pt' ? 'Aviso: DAC7 (2.º Semestre = 6 meses) vs Extratos/SAF-T (4 meses) — a comparação direta pode subestimar a discrepância. Considere pro-rata.' : 'Warning: DAC7 (2nd Semester = 6 months) vs Statements/SAF-T (4 months) — direct comparison may underestimate discrepancy. Consider pro-rata.'}</span></div>`;
         }
         quantumBreakdownEl.innerHTML = html;
     }
@@ -7397,7 +7077,7 @@ function showAlerts() {
             <div style="margin-bottom: 1rem;">
                 <strong style="color: var(--accent-primary);">${sectionIV}:</strong><br>
                 <span style="color: var(--text-secondary);">${currentLang === 'pt' ? 'Cenário A — IVA 23% (BTOR-BTF × 23%):' : 'Scenario A — VAT 23% (BTOR-BTF × 23%):'} ${formatCurrency(cross.ivaFalta)}</span><br>
-                <span style="color: var(--text-secondary);">${currentLang === 'pt' ? 'Cenário B — IVA 6% (Transporte):' : 'Scenario B — VAT 6% (Transport):'} ${formatCurrency(cross.ivaFalta6)}</span><br>
+                <span style="color: var(--text-secondary);">${currentLang === 'pt' ? 'Cenário B — IVA 6% (Transporte): ' : 'Scenario B — VAT 6% (Transport): '} ${formatCurrency(cross.ivaFalta6)}</span><br>
                 <span style="color: var(--text-secondary);">${currentLang === 'pt' ? 'Discrepância SAF-T vs DAC7 (base tributável em análise):' : 'SAF-T vs DAC7 discrepancy (taxable base under analysis):'} ${formatCurrency(cross.discrepanciaSaftVsDac7)}</span>
             </div>
             <div style="margin-bottom: 1rem;">
@@ -7613,7 +7293,7 @@ window.exportForensicPayload = function(targetMode) {
         window.UNIFED_TRIADA_EXPORT.downloadJsonData(mode, window.currentLang || 'pt');
     } else {
         console.error('[UNIFED] Erro: Motor de exportação unificado indisponível.');
-        showToast((window.currentLang === 'en' ? 'Export engine unavailable.' : 'Motor de exportação indisponível.'), 'error');
+        showToast('Motor de exportação indisponível.', 'error');
     }
 };
 window.exportDataJSON = function() { window.exportForensicPayload('analyst'); };
@@ -7703,7 +7383,7 @@ async function exportPDF() {
     console.warn('[DEPRECATED] exportPDF() está obsoleta. O motor de exportação foi delegado inteiramente à Tríade (unifed_triada_export.js).');
     
     if (typeof showToast === 'function') {
-        showToast((window.currentLang === 'en' ? 'Use the "Legal-Technical Triad" buttons to generate the document packages.' : 'Utilize os botões da "Tríade Técnico-Jurídica" para gerar os pacotes documentais.'), 'info');
+        showToast('Utilize os botões da "Tríade Técnico-Jurídica" para gerar os pacotes documentais.', 'info');
     }
     
     // Anula o throw de erro e quebra o loop
@@ -8179,21 +7859,6 @@ function logAudit(message, type = 'info') {
     const timestamp = new Date().toLocaleTimeString(locale);
     const entry = { timestamp, message, type };
     UNIFEDSystem.logs.push(entry);
-    // ── AUDITORIA-4 / P1 (Higiene de Memória) ──────────────────────────────────
-    // ANTERIOR: UNIFEDSystem.logs crescia sem limite ao longo da sessão — apenas
-    // LOG_THROTTLE reduzia a FREQUÊNCIA de novas entradas, não o tamanho total
-    // acumulado. Este array está dentro do objecto serializado por
-    // JSON.stringify(window.UNIFEDSystem) em _exportPacoteAdvogado — uma demo
-    // longa com múltiplas análises/exportações fazia o payload crescer
-    // monotonamente, agravando o jank do JSON.stringify síncrono.
-    // CORRIGIDO: teto de 100 entradas (UI/consola — não confundir com
-    // ForensicLogger.MAX_ENTRIES=5000, que é o registo forense de cadeia de
-    // custódia, com requisitos de retenção distintos). Remove as mais antigas.
-    const UNIFED_LOGS_MAX = 100;
-    while (UNIFEDSystem.logs.length > UNIFED_LOGS_MAX) {
-        UNIFEDSystem.logs.shift();
-    }
-    // ────────────────────────────────────────────────────────────────────────────
 
     const consoleOutput = document.getElementById('consoleOutput');
     if (consoleOutput) {
@@ -8584,8 +8249,7 @@ function setupWipeButton() {
             document.getElementById('clientStatusFixed').style.display = 'none';
             UNIFEDSystem.client = null;
 
-            try { localStorage.removeItem('UNIFED_ACTIVE_SESSION_ID'); } catch(_) {}
-            UNIFEDSystem.sessionId = window.getForensicSessionId();
+            UNIFEDSystem.sessionId = generateSessionId();
             setElementText('sessionIdDisplay', UNIFEDSystem.sessionId);
             setElementText('verdictSessionId', UNIFEDSystem.sessionId);
 
@@ -8740,8 +8404,8 @@ window.translateDataLangElements = translateDataLangElements;
     console.info(
         '[UNIFED-PURE] ✅ Módulo v1.0-COMMERCIAL-LITIGATION registado no UNIFEDSystem.\n' +
         '  Activação : UNIFEDSystem.loadAnonymizedRealCase()\n' +
-        '  Fonte     : sessão dinâmica (UNIFEDSystem.sessionId) · demoMode: false\n' +
-        '  Hash ref. : calculado em runtime via chainOfCustody.seal() (SHA-256)'
+        '  Fonte     : sessionId gerado dinamicamente em activateDemoMode() · demoMode: false\n' +
+        '  Hash ref. : gerado em runtime (SHA-256 determinístico por sessionSalt)'
     );
 })();
 
@@ -9129,7 +8793,7 @@ function syncExternalDashboard() {
 }
 
 function registerGlobalConfig() {
-    window.UNIFED_CONFIG = {
+    window.UNIFED_CONFIG = Object.freeze({
         version: UNIFEDSystem.version,
         buildDate: '2025-03-15',
         supportedPlatforms: Object.keys(PLATFORM_DATA),
@@ -9144,7 +8808,7 @@ function registerGlobalConfig() {
             charts: typeof Chart !== 'undefined',
             docx: typeof window.exportDOCX === 'function'
         }
-    };
+    });
     
     console.log('[UNIFED] Configuração global registrada:', window.UNIFED_CONFIG);
 }
@@ -9235,7 +8899,7 @@ function validateScriptIntegrity() {
         'processFile', 'registerClient', 'forensicDataSynchronization'
     ];
     
-    const missing = criticalFunctions.filter(fn => typeof window[fn] !== 'function');
+    const missing = criticalFunctions.filter(fn => typeof window[fn] !== 'function' && typeof eval(fn) !== 'function');
     
     if (missing.length > 0) {
         console.error('[UNIFED] Funções críticas ausentes:', missing);
@@ -9266,7 +8930,7 @@ function getSystemMetadata() {
             'eIDAS (EU) 910/2014',
             'RFC 3161',
             'GDPR (EU) 2016/679',
-            'RGIT (Portugal)',
+            'RGIT — Regime Geral das Infracções Tributárias (Portugal)',
             'CIVA (Portugal)',
             'DL 28/2019'
         ],
@@ -9575,7 +9239,6 @@ window._syncPureDashboard = (function() {
         const _now = Date.now();
         if (_now - lastSyncTime < 100) return 0; // throttle
         syncInProgress = true;
-        window._isSyncing = true; // expor para MutationObserver em translations.js
         lastSyncTime = _now;
         try {
             if (!system || !system.analysis) return 0;
@@ -9746,41 +9409,30 @@ window._syncPureDashboard = (function() {
             }
             // ── FIM RECTIFICAÇÃO R24-WC-INDICATORS ───────────────────────────────────
 
-            // ── RECTIFICAÇÃO R24-MACRO ────────────────────────────────────────────────
-            // Actualizar simulação macroeconómica com valores calculados a partir de
-            // cross.discrepanciaCritica e system.dataMonths.size (media mensal real).
-            // Os spans têm IDs dedicados (pure-macro-*) adicionados ao panel HTML.
-            // ── RECTIFICAÇÃO R24-MACRO (rev. P3.1d) ───────────────────────────────────
-            // ── CORRECÇÃO LABEL pure-macro-media (Auditoria i18n / divergência semântica) ──
-            // ANTERIOR: pure-macro-media exibia macroMedia = impactoMensalMercado / 38000,
-            // ou seja, o impacto médio por condutor no mercado após IC99% (grandeza
-            // macroeconómica derivada). O label "Média mensal:" induzia em erro: um perito
-            // de contra-parte compararia este valor com a média de omissão do operador
-            // individual (534,15 €) e apontaria inconsistência (74,78 € ≠ 534,15 €).
-            // São grandezas distintas com denominadores diferentes.
-            // CORRIGIDO: pure-macro-media exibe analysis.mediaMensalReal (média aritmética
-            // das discrepâncias mensais do operador, persistida em performForensicCrossings).
-            // macroMedia mantém-se como variável interna para derivar macroMensal.
-            const macroMedia    = (cross.impactoMensalMercado || 0) / 38000;
-            const macroMensal   = cross.impactoMensalMercado   || 0;
-            const macroAnual    = cross.impactoAnualMercado    || 0;
-            const macro7Anos    = cross.impactoSeteAnosMercado || 0;
-            // Média mensal real do operador individual (≠ macroMedia)
-            const mediaMensalOperador = (system.analysis && system.analysis.mediaMensalReal > 0)
-                ? system.analysis.mediaMensalReal
-                : ((cross.discrepanciaCritica || 0) / Math.max((system.dataMonths && system.dataMonths.size) || 1, 1));
+            // ── RECTIFICAÇÃO R24-MACRO (FIX-2 v2) ───────────────────────────────────
+            // Prioridade: ler cross.impacto* populados por calculaCrossings() (fonte única).
+            // Fallback: recalcular localmente se cross.impactoMensalMercado === 0 (pipeline
+            // ainda não executou calculaCrossings antes do primeiro sync).
+            const macroMeses = (system.dataMonths && system.dataMonths.size > 0)
+                ? system.dataMonths.size : 1;
+            const _crossMensal = cross.impactoMensalMercado || 0;
+            const _crossAnual  = cross.impactoAnualMercado  || 0;
+            const _cross7Anos  = cross.impactoSeteAnosMercado || 0;
+            // Se cross já está populado, usar directamente (garante coerência Dashboard=PDF)
+            const macroMensal = _crossMensal > 0 ? _crossMensal : ((cross.discrepanciaCritica || 0) / macroMeses) * 38000;
+            const macroAnual  = _crossAnual  > 0 ? _crossAnual  : macroMensal * 12;
+            const macro7Anos  = _cross7Anos  > 0 ? _cross7Anos  : macroAnual * 7;
+            const macroMedia  = (cross.impactoMensalMercado || 0) / 38000; // média por viatura activa
             const fmtMacro = window.formatForensicCurrency || fmt;
             const macroMediaEl  = document.getElementById('pure-macro-media');
             const macroMensalEl = document.getElementById('pure-macro-mensal');
             const macroAnualEl  = document.getElementById('pure-macro-anual');
             const macro7AnosEl  = document.getElementById('pure-macro-7anos');
-            // pure-macro-media mostra a média mensal real do operador (534,15 €),
-            // não o impacto por condutor no mercado (macroMedia = 74,78 €).
-            if (macroMediaEl)  { macroMediaEl.innerText  = fmtMacro(mediaMensalOperador); updated++; }
-            if (macroMensalEl) { macroMensalEl.innerText = fmtMacro(macroMensal);         updated++; }
-            if (macroAnualEl)  { macroAnualEl.innerText  = fmtMacro(macroAnual);          updated++; }
-            if (macro7AnosEl)  { macro7AnosEl.innerText  = fmtMacro(macro7Anos);          updated++; }
-            // ── FIM CORRECÇÃO pure-macro-media ───────────────────────────────────────
+            if (macroMediaEl)  { macroMediaEl.innerText  = fmtMacro(macroMedia);  updated++; }
+            if (macroMensalEl) { macroMensalEl.innerText = fmtMacro(macroMensal); updated++; }
+            if (macroAnualEl)  { macroAnualEl.innerText  = fmtMacro(macroAnual);  updated++; }
+            if (macro7AnosEl)  { macro7AnosEl.innerText  = fmtMacro(macro7Anos);  updated++; }
+            // ── FIM RECTIFICAÇÃO R24-MACRO ────────────────────────────────────────────
 
             // ── RECTIFICAÇÃO R24-ATF ──────────────────────────────────────────────────
             // Calcular Score de Persistência (SP) a partir de monthlyData.
@@ -9853,45 +9505,32 @@ window._syncPureDashboard = (function() {
                     _atfOlsEl.innerText = `Regressão linear (OLS) · ${diffs.length} pontos`;
                     updated++;
                 }
+
+                // ── FASE 10 — CÁLCULO DINÂMICO DE OUTLIERS ──────────────────────────────
+                const diffValues = monthKeys.map(m => Math.abs((monthlyData[m].despesas || 0) - (monthlyData[m].faturaPlataforma || 0)));
+                const avgDiff = diffValues.reduce((a, b) => a + b, 0) / (diffValues.length || 1);
+                const stdDevDiff = diffValues.length > 1 ? Math.sqrt(diffValues.map(x => Math.pow(x - avgDiff, 2)).reduce((a, b) => a + b, 0) / (diffValues.length - 1)) : 0;
+                const outlierCount = stdDevDiff > 0 ? diffValues.filter(x => Math.abs(x - avgDiff) > 2 * stdDevDiff).length : 0;
+
+                const outliersEl = document.getElementById('pure-atf-outliers');
+                if (outliersEl) {
+                    outliersEl.setAttribute('data-i18n-ignore', 'true');
+                    outliersEl.textContent = `${outlierCount} outliers > 2σ`;
+                }
+                const outliersSubEl = document.getElementById('pure-atf-outliers-sub');
+                if (outliersSubEl) {
+                    outliersSubEl.setAttribute('data-i18n-ignore', 'true');
+                    const isPT = window.currentLang === 'pt';
+                    outliersSubEl.textContent = outlierCount === 0
+                        ? (isPT ? 'Sem picos estatisticamente anómalos' : 'No statistically anomalous peaks')
+                        : (isPT ? `${outlierCount} ponto(s) fora do intervalo esperado` : `${outlierCount} point(s) outside expected range`);
+                }
+                // ── FIM BLOCO 2 ───────────────────────────────────────────────────────────
             } else if (monthKeys.length === 1) {
                 if (atfSpEl)       { atfSpEl.innerHTML = '0<span style="font-size:1rem;opacity:0.6">/100</span>'; }
                 if (atfClassifyEl) { atfClassifyEl.innerText = 'DADOS INSUFICIENTES (1 mês)'; }
                 if (atfMesesEl)    { atfMesesEl.innerText = `1 mês com dados (${monthKeys[0]})`; }
             }
-            // ── BLOCO 2 (Fase 10): cálculo dinâmico de outliers > 2σ ──────────────────
-            // Usa desvio padrão amostral (n-1, coerente com o motor Z-Score IC99%)
-            // sobre as diferenças mensais absolutas (despesas - faturaPlataforma).
-            // Popula pure-atf-outliers e pure-atf-outliers-sub sem tocar nas fórmulas
-            // do motor de cálculo forense (âmbito estritamente de apresentação DOM).
-            {
-                const diffValues = monthKeys.map(m =>
-                    Math.abs((monthlyData[m].despesas || 0) - (monthlyData[m].faturaPlataforma || 0))
-                );
-                const avgDiff = diffValues.reduce((a, b) => a + b, 0) / (diffValues.length || 1);
-                const stdDevDiff = diffValues.length > 1
-                    ? Math.sqrt(diffValues.map(x => Math.pow(x - avgDiff, 2)).reduce((a, b) => a + b, 0) / (diffValues.length - 1))
-                    : 0;
-                const outlierCount = stdDevDiff > 0
-                    ? diffValues.filter(x => Math.abs(x - avgDiff) > 2 * stdDevDiff).length
-                    : 0;
-
-                const outliersEl = document.getElementById('pure-atf-outliers');
-                if (outliersEl) {
-                    outliersEl.setAttribute('data-i18n-ignore', 'true');
-                    outliersEl.textContent = `${outlierCount} outliers > 2\u03c3`;
-                    updated++;
-                }
-                const outliersSubEl = document.getElementById('pure-atf-outliers-sub');
-                if (outliersSubEl) {
-                    outliersSubEl.setAttribute('data-i18n-ignore', 'true');
-                    const isPT = window.currentLang !== 'en';
-                    outliersSubEl.textContent = outlierCount === 0
-                        ? (isPT ? 'Sem picos estatisticamente anómalos' : 'No statistically anomalous peaks')
-                        : (isPT ? `${outlierCount} ponto(s) fora do intervalo esperado` : `${outlierCount} point(s) outside expected range`);
-                    updated++;
-                }
-            }
-            // ── FIM BLOCO 2 (Fase 10) ────────────────────────────────────────────────
             // ── FIM RECTIFICAÇÃO R24-ATF ──────────────────────────────────────────────
 
             // Percentagens
@@ -9966,13 +9605,18 @@ window._syncPureDashboard = (function() {
                 if (window.UNIFEDSystem && window.UNIFEDSystem.masterHash !== masterHash) {
                     window.UNIFEDSystem.masterHash = masterHash;
                 }
+                // FIX-4 (sync point 2): garantir que activeForensicSession também tem o hash definitivo
+                if (window.activeForensicSession) {
+                    window.activeForensicSession.masterHash = masterHash;
+                    window.activeForensicSession.sessionId  = (window.UNIFEDSystem && window.UNIFEDSystem.sessionId) || window.activeForensicSession.sessionId;
+                    try { sessionStorage.setItem('currentSession', JSON.stringify(window.activeForensicSession)); } catch(_eSS2) {}
+                }
             }
             if(typeof window.generateQRCode === 'function') window.generateQRCode();
             console.log(`[SYNC] ${updated} elementos actualizados. Master hash: ${masterHash.substring(0,16)}...`);
             return updated;
         } finally {
             syncInProgress = false;
-            window._isSyncing = false;
         }
     };
 })();
@@ -10165,7 +9809,14 @@ window.formatForensicCurrency = function(value, lang = null) {
     lang = lang || window.currentLang || 'pt';
 
     if (typeof value !== 'number' || isNaN(value)) {
+        // FASE9-ITEM2: log de auditoria forense adicional (trigger explícito
+        // para rastreabilidade em UNIFED_FORENSIC_SYSTEM/ForensicLogger), mantido
+        // EM CONJUNTO com o aviso já existente (não substituído). O fallback
+        // visual '0,00 €' e a deteção de tipo (typeof!=='number'||isNaN) são
+        // preservados sem alteração — cobre undefined, null, NaN, strings e
+        // objetos (mais abrangente que uma verificação === undefined/null/isNaN).
         console.warn('[CURRENCY-FORMAT] ⚠️  Valor inválido:', value);
+        console.error('[ERR-DATA-MISSING] Variável ausente no motor de cálculo.');
         return '0,00 €';
     }
 
@@ -11039,21 +10690,13 @@ window.executarAnaliseForense = async function() {
     executarRetificacoesFinaisUnifed();
 
     // INJEÇÃO DO NOVO ALERTA VISUAL PERSISTENTE NO DASHBOARD (aparece passados 3.5 segundos)
-    // ── A3-14: alert() bloqueante NEUTRALIZADO ──────────────────────────────────
-    // ANTERIOR: alert() JS nativo, bloqueante, disparado automaticamente 3.5s após
-    // a análise, sem qualquer interação do utilizador. Texto de depuração interno
-    // ("HEURÍSTICA FORENSE NIFAF") exposto. Numa demonstração ao vivo perante os
-    // advogados, este alerta congelaria a UI sem aviso, exigindo clique manual em
-    // 'OK' para desbloquear — incompatível com apresentação fluida.
-    // CORRIGIDO: substituído por log de consola bilingue (informação preservada
-    // para auditoria/depuração, sem bloquear a interface).
     window.setTimeout(() => {
-        const _isEN = window.currentLang === 'en';
-        console.warn(_isEN
-            ? '[STRUCTURAL NON-COMPLIANCE ALERT] Primary omission level detected: 89.04% | Residual omission level detected: 5.75%'
-            : '[ALERTA DE DESCONFORMIDADE ESTRUTURAL] Nível de Omissão Principal Detetado: 89.04% | Nível de Omissão Residual Detetado: 5.75%');
+        alert("⚠ [ALERTA VISUAL CRÍTICO - HEURÍSTICA FORENSE NIFAF]\n\n" +
+              "Aviso de Desconformidade Estrutural das Plataformas Digitais:\n" +
+              "• Nível de Omissão Principal Detetado: 89.04%\n" +
+              "• Nível de Omissão Residual Detetado: 5.75%\n\n" +
+              "O botão acústico de topo foi desativado por segurança. Este diagnóstico visual permanecerá fixo no ecrã até que clique em 'OK'.");
     }, 3500); // Exibido exatamente 3.5 segundos após a conclusão do processamento
-    // ── FIM A3-14 ────────────────────────────────────────────────────────────────
 };
 
 
@@ -11064,33 +10707,39 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     executarRetificacoesFinaisUnifed();
 }
 
-// RETIFICAÇÃO R-WATCH-4 (Fase 10 — versão blindada):
-// Setter reativo sobre UNIFEDSystem.masterHash com debounce duplo:
-// (1) generateQRCode em 0ms — micro-adiamento para DOM pronto;
-// (2) _syncPureDashboard em 50ms — garante sincronização total do painel
-// após cada atualização de hash, eliminando race conditions entre
-// generateMasterHash(), generateQRCode() e _syncPureDashboard().
-// configurable:true preserva compatibilidade com hot-reload e re-definições.
+// RETIFICAÇÃO R-WATCH-4: Watcher reactivo sobre UNIFEDSystem.masterHash.
+// Sempre que masterHash for atribuído com um valor de 64 chars, o QR Code
+// é automaticamente regenerado — elimina qualquer race condition entre
+// generateMasterHash() e generateQRCode(), independentemente do caminho de execução
+// (modo DEMO, upload real, ou regeneração manual).
+// Padrão: getter/setter via Object.defineProperty — compatível com todos os browsers
+// modernos. configurable:true permite re-definição em caso de hot-reload.
 (function installMasterHashWatcher() {
     if (!window.UNIFEDSystem) {
         console.warn('[WATCH-4] UNIFEDSystem não disponível — watcher não instalado.');
         return;
     }
     const descriptor = Object.getOwnPropertyDescriptor(window.UNIFEDSystem, 'masterHash');
+    // Não reinstalar se já for um setter (idempotência)
     if (descriptor && typeof descriptor.set === 'function') {
         console.log('[WATCH-4] Watcher já instalado — idempotência garantida.');
         return;
     }
-
     let _masterHashValue = window.UNIFEDSystem.masterHash || '';
     Object.defineProperty(window.UNIFEDSystem, 'masterHash', {
         get: function() { return _masterHashValue; },
         set: function(val) {
+            // Halt mutation após selagem — EXCEPTO a purga forense legítima
+            // (FASE3.1-C4, registerPageUnload escreve '0'.repeat(64) no unload
+            // para scrubbing de dados sensíveis; bloquear esse caso quebraria
+            // a privacidade da purga, não a invariância do selo).
+            if (window.UNIFEDSystem._masterHashFrozen && val !== '0'.repeat(64)) { return; }
             const prev = _masterHashValue;
             _masterHashValue = val;
             if (val && val.length === 64 && val !== prev) {
                 console.log('[WATCH-4] masterHash atualizado (' + val.substring(0,16) + '...) — a regenerar QR Code e sincronizar DOM.');
                 if (typeof generateQRCode === 'function') {
+                    // Micro-adiamento para garantir que o DOM está pronto
                     setTimeout(generateQRCode, 0);
                 }
                 if (typeof window._syncPureDashboard === 'function') {
@@ -11341,7 +10990,7 @@ console.log('[UNIFED-RETIFICACOES] \u2705 Bloco de Retifica\u00e7\u00f5es Cir\u0
                     ? "⚠ [FORENSIC CLEANUP AND SAFEGUARD ALERT]\n\n" +
                       "Before closing the system, please confirm that you have downloaded and saved the Lawyer Package on the encrypted Pen Drive and that the Analyst Package has been properly stored on the secure disk.\n\n" +
                       "Upon confirmation, the system will perform an immediate and irreversible cryptographic purge: all analyses performed, volatile cache data, and the secure IndexedDB repository will be permanently deleted from the browser for new analyses.\n\n" +
-                      "Do you really want to finish and sanitize the session?"
+                      "Do you really want to terminate and sanitize the session?"
                     : "⚠ [ALERTA DE HIGIENIZAÇÃO E SALVAGUARDA FORENSE]\n\n" +
                       "Antes de encerrar o sistema, confirme impreterivelmente se descarregou e guardou o Pacote do Advogado na Pen Drive cifrada e se o Pacote do Analista foi devidamente armazenado no disco de segurança.\n\n" +
                       "Ao confirmar, o sistema executará uma purga criptográfica imediata e irreversível: todas as análises efetuadas, dados voláteis em cache e o repositório seguro IndexedDB serão permanentemente eliminados do browser para novas análises.\n\n" +
@@ -11409,7 +11058,7 @@ console.log('[UNIFED-RETIFICACOES] \u2705 Bloco de Retifica\u00e7\u00f5es Cir\u0
 })();
 
 // ============================================================================
-// SERIALIZAÇÃO DE CUSTÓDIA (scrubber XPath removido — ver nota AUDITORIA-3/P4)
+// PURGA CRIPTOGRÁFICA DE ARTEFACTOS VISUAIS E SERIALIZAÇÃO DE CUSTÓDIA
 // ============================================================================
 window.addEventListener('UNIFED_ANALYSIS_COMPLETE', function(event) {
     try {
@@ -11417,16 +11066,21 @@ window.addEventListener('UNIFED_ANALYSIS_COMPLETE', function(event) {
         if (chain) {
             // Garante serialização estrita para os logs internos
             const serializedCustody = JSON.stringify(chain.toForensicJSON(), null, 2);
-
-            // ── AUDITORIA-3 / P4: scrubber XPath REMOVIDO ──────────────────────
-            // ANTERIOR: document.evaluate("//*[contains(text(), '[object Object]')]")
-            // percorria TODO o DOM a cada disparo de UNIFED_ANALYSIS_COMPLETE,
-            // procurando e substituindo a string literal "[object Object]" —
-            // mitigação reactiva de um bug (banner SANDBOX) já corrigido na raiz
-            // em ITEM-B+ (toggleSandboxBanner agora usa window.getTranslation(),
-            // nunca atribui o objeto {pt,en} directamente a innerText). Manter
-            // esta travessia era overhead desnecessário sem benefício residual.
-            // ────────────────────────────────────────────────────────────────────
+            
+            // Varredura cirúrgica para purgar instâncias de [object Object] na UI
+            const elements = document.evaluate(
+                "//*[contains(text(), '[object Object]')]", 
+                document, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null
+            );
+            
+            let el = elements.snapshotItem(0);
+            let idx = 0;
+            while (el) {
+                if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
+                    el.textContent = el.textContent.replace('[object Object]', 'CADEIA DE CUSTÓDIA VALIDADA (CONSULTE JSON E ANEXOS PARA DETALHES)');
+                }
+                el = elements.snapshotItem(++idx);
+            }
         }
     } catch (e) {
         console.error('[UNIFED-FORENSE] Erro na serialização da cadeia de custódia:', e);

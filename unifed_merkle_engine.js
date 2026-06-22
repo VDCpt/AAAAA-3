@@ -205,7 +205,10 @@ window.UNIFED_MerkleEngine = (function() {
                 timestamp: treeData.timestamp,
                 algorithm: 'SHA-256',
                 protocol: 'Merkle Tree (RFC 3161 compatible)',
-                eidas2Compliant: true,
+                // F9.3-VECTOR6: eidas2Compliant lido dinamicamente — mesma lógica de
+                // unifed_triada_export.js. Resolve para 'false' até validação ANS/CNCS
+                // (window.UNIFED_TSA_CONFIG indisponível no sistema vivo per D13).
+                eidas2Compliant: !!(window.UNIFED_TSA_CONFIG && window.UNIFED_TSA_CONFIG.eidas2Compliant === true),
                 selectiveDisclosure: {
                     enabled: true,
                     leafCount: treeData.leafCount,
@@ -348,7 +351,13 @@ window.gerarMasterHashFinal = async function(colecaoEvidencias) {
     let hashCompleto;
     // Tenta usar CryptoJS (síncrono) se disponível, para compatibilidade com o código original
     if (typeof CryptoJS !== 'undefined' && CryptoJS.SHA256) {
-        hashCompleto = CryptoJS.SHA256(concatenated).toString(CryptoJS.enc.Hex);
+        // FASE1.1-HASH-CASE: CryptoJS.enc.Hex produz hexadecimal em minúsculas por
+        // omissão. sha256Hash() (linha 28) e UNIFED_MerkleEngine.generateMasterHash
+        // (via sha256Hash) retornam SEMPRE em MAIÚSCULAS. Sem .toUpperCase() aqui,
+        // uma comparação H1===H2 entre este caminho e qualquer outro caminho de
+        // geração de masterHash falharia por divergência de capitalização apesar
+        // de representarem o MESMO valor SHA-256. Normalizado para UPPERCASE.
+        hashCompleto = CryptoJS.SHA256(concatenated).toString(CryptoJS.enc.Hex).toUpperCase();
         // Retorna sem truncamento (64 caracteres)
         return hashCompleto;
     }
@@ -366,7 +375,8 @@ window.gerarMasterHashFinal = async function(colecaoEvidencias) {
         const msgBuffer = new TextEncoder().encode(concatenated);
         const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
-        hashCompleto = hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');
+        // FASE1.1-HASH-CASE: normalizado para UPPERCASE (ver nota acima).
+        hashCompleto = hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('').toUpperCase();
         return hashCompleto;
     } catch (e) {
         throw new Error('[MasterHash] Falha ao gerar hash: ' + e.message);

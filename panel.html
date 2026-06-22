@@ -49,7 +49,7 @@
       <div class="pure-data-block">
         <div class="pure-data-label" id="pure-label-ganhos" data-pt="Ganhos (Extrato Ledger)" data-en="Earnings (Ledger Statement)">Ganhos (Extrato Ledger)</div>
         <div id="pure-ganhos-reais" class="pure-data-value pure-value-primary" data-i18n-ignore>€ 0,00</div>
-        <div class="pure-data-sub" id="pure-sub-ganhos" data-pt="Fonte primária · Viagens efectuadas" data-en="Primary source · Trips completed">Fonte primária · Viagens efectuadas</div>
+        <div class="pure-data-sub" id="pure-sub-ganhos" data-pt="Fonte primária · Viagens efetuadas" data-en="Primary source · Trips completed">Fonte primária · Viagens efetuadas</div>
       </div>
 
       <div class="pure-data-block">
@@ -73,7 +73,7 @@
       <div class="pure-data-block">
         <div class="pure-data-label" id="pure-label-dac7" data-pt="DAC7 (Reportado à AT)" data-en="DAC7 (Reported to TA)">DAC7 (Reportado à AT)</div>
         <div id="pure-dac7-total" class="pure-data-value pure-value-neutral" data-i18n-ignore>€ 0,00</div>
-        <div class="pure-data-sub" id="pure-sub-dac7" data-pt="2.º Semestre 2024 (Q4 activo)" data-en="2nd Semester 2024 (Q4 active)">2.º Semestre 2024 (Q4 activo)</div>
+        <div class="pure-data-sub" id="pure-sub-dac7" data-pt="2.º Semestre 2024 (Q4 ativo)" data-en="2nd Semester 2024 (Q4 active)">2.º Semestre 2024 (Q4 ativo)</div>
       </div>
 
       <div class="pure-data-block">
@@ -356,7 +356,7 @@
         <div class="pure-verdict-label" id="pure-verdict-label" data-pt="VEREDICTO TÉCNICO-JURÍDICA" data-en="EXPERT VERDICT">VEREDICTO TÉCNICO-JURÍDICA</div>
         <div id="pure-verdict" class="pure-verdict-value" data-pt="RISCO ELEVADO" data-en="HIGH RISK">RISCO ELEVADO</div>
         <div id="pure-verdict-pct" class="pure-verdict-pct" data-i18n-ignore>89,26%</div>
-        <div class="pure-verdict-basis" id="pure-verdict-basis" data-pt="Art. 103.º / 104.º RGIT · Art. 125.º CPP" data-en="Art. 103 / 104 RGIT · Art. 125 CPP">Art. 103.º / 104.º RGIT · Art. 125.º CPP</div>
+        <div class="pure-verdict-basis" id="pure-verdict-basis" data-pt="Art. 103.º / 104.º Normas de Conformidade Fiscal · Art. 125.º CPP" data-en="Art. 103 / 104 Normas de Conformidade Fiscal · Art. 125 CPP">Art. 103.º / 104.º Normas de Conformidade Fiscal · Art. 125.º CPP</div>
       </div>
       <div class="pure-integrity-block">
         <!-- RETIFICAÇÃO R24-2.1: badge criminalidade de colarinho branco -->
@@ -465,17 +465,9 @@
             const ptText = el.getAttribute('data-pt');
             const enText = el.getAttribute('data-en');
             if (lang === 'pt' && ptText) {
-              if (el.isContentEditable) {
-                el.innerText = ptText;
-              } else {
-                el.innerText = ptText;
-              }
+              el.innerText = ptText;
             } else if (lang === 'en' && enText) {
-              if (el.isContentEditable) {
-                el.innerText = enText;
-              } else {
-                el.innerText = enText;
-              }
+              el.innerText = enText;
             }
           }
           window.dispatchEvent(new CustomEvent('unifed:translationDone', { detail: { lang } }));
@@ -489,17 +481,9 @@
             const ptText = el.getAttribute('data-pt');
             const enText = el.getAttribute('data-en');
             if (lang === 'pt' && ptText) {
-              if (el.isContentEditable) {
-                el.innerText = ptText;
-              } else {
-                el.innerText = ptText;
-              }
+              el.innerText = ptText;
             } else if (lang === 'en' && enText) {
-              if (el.isContentEditable) {
-                el.innerText = enText;
-              } else {
-                el.innerText = enText;
-              }
+              el.innerText = enText;
             }
           }
           window.dispatchEvent(new CustomEvent('unifed:translationDone', { detail: { lang } }));

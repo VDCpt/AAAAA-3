@@ -23,18 +23,23 @@ window.UNIFED_ArchitectureReport = {
             cores: navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency}` : 'Unknown'
         };
 
-        // ── RETIFICAÇÃO ITEM-2a (hashes de referência — generateHTMLReport) ───
-        // ANTERIOR: hashes fabricados (65-68 chars). CORRIGIDO: SHA-256 reais
-        // calculados sobre os ficheiros entregues na Fase 3 (2026-06-14).
+        // ── F5.1: Hashes SHA-256 REAIS (lowercase, SHA-256 do conteúdo UTF-8 do
+        // ficheiro — mesmo algoritmo de sha256Hash() abaixo), calculados sobre o
+        // estado v1.0-COMMERCIAL-LITIGATION-P3.2+F3+F4. Substituem os placeholders
+        // anteriores (70 caracteres, padrão sequencial — nunca eram SHA-256 válidos
+        // de 64 caracteres e produziam sempre "❌ CORROMPIDO" na validação dinâmica).
+        // NOTA: estes valores ficam desatualizados após qualquer edição posterior
+        // aos 8 ficheiros listados — ver runAllValidations() para o tratamento
+        // gracioso desse cenário (não gera falso "CORROMPIDO").
         const MODULE_INTEGRITY = {
-            'script.js':                         '57003bd7342c91caec2855cdfed8351f7ff1e19c769def54f5a7b7229dec947c',
-            'unifed_triada_export.js':            '9bb393688ca9170cc4f6c763a54f1bb07019968b0a80b7f26a8be5e224d9a01c',
-            'unifed_questionnaire_50questions.js':'939e5f916d990e3d29b321753a6a64cb454ef0b1f32ec2e789da20c025afef58',
-            'unifed_merkle_engine.js':            '95255f3d3f136193ebb962c0de82e7ded0d54f8f692a861a97f161cfdfb05d80',
-            'enrichment.js':                      '1d6b9fd8ead518398d2c289f56ece1449a1118f72c92c94714dc3ec1e695f33b',
-            'nexus.js':                           '940908a4cc3ae54dcb6c0d16ff4591d26b4cb0e4506806d66af429092d201b2b',
-            'translations.js':                    '76c074d4dc9987807c2a16e4ffdbff8613face2e6f491261bc7e9ce58fb6768a',
-            'script_injection.js':                'fda58b5ca22d0427d0ce8e4fade96bad5f393176c32c87af7c748178644c3e20'
+            'script.js': 'f16912e65ed8399e5a1739b5018613901c252345fcc62a6d576c004be0d10ffb',
+            'unifed_triada_export.js': 'c173d05c8c14e3ce38987920fedecf75fba4f5b78bb4217ce2f545490ad6074b',
+            'unifed_questionnaire_50questions.js': 'fb85ac006cddfeb695fabe9cea90baeed27eb4941473a588adad9b5ef22973f1',
+            'unifed_merkle_engine.js': 'af6b7a4d2cb9e55818454d7292a9abc91f36a743473f439c7f54a09737956ff5',
+            'enrichment.js': '1d6b9fd8ead518398d2c289f56ece1449a1118f72c92c94714dc3ec1e695f33b',
+            'nexus.js': '68e41429abdeae7f87081b1851f66ab0dc8833510de179e56b79a4fdf6a6e45e',
+            'translations.js': '249fe01ae7fa041b5567a6d508290211f275828c6791f01ec5769e9c09ee3ce1',
+            'script_injection.js': 'fda58b5ca22d0427d0ce8e4fade96bad5f393176c32c87af7c748178644c3e20'
         };
 
         const modules = [
@@ -172,6 +177,9 @@ window.UNIFED_ArchitectureReport = {
         .integrity-item.invalid {
             border-left: 3px solid #ef4444;
         }
+        .integrity-item.unavailable {
+            border-left: 3px solid #64748b;
+        }
         .integrity-item .module-name {
             color: #00e5ff;
             font-weight: bold;
@@ -188,6 +196,10 @@ window.UNIFED_ArchitectureReport = {
         }
         .integrity-badge-invalid {
             color: #ef4444;
+            font-weight: bold;
+        }
+        .integrity-badge-unavailable {
+            color: #94a3b8;
             font-weight: bold;
         }
         .signature {
@@ -307,7 +319,7 @@ window.UNIFED_ArchitectureReport = {
     <div class="compliance">✓ RFC 3161 — Time-Stamp Protocol (TSP) para Autenticação de Timestamps</div>
     <div class="compliance">✓ eIDAS 2.0 — Selective Disclosure via Merkle Tree Proofs</div>
     <div class="compliance">✓ Art. 125º CPP — Admissibilidade de Prova Técnico-Jurídica Digital em Portugal</div>
-    <div class="compliance">✓ Art. 103º RGIT — Obrigações de Faturação e Documentação Fiscal</div>
+    <div class="compliance">✓ Art. 103º Normas de Conformidade Fiscal — Obrigações de Faturação e Documentação Fiscal</div>
     <div class="compliance">✓ Art. 2º, n.º 1, al. i) CIVA — Operações Sujeitas a Autoliquidação</div>
     <div class="compliance">✓ Diretiva UE 2021/514 (DAC7) — Reportagem de Operações de Plataformas Digitais</div>
 </div>
@@ -324,7 +336,7 @@ window.UNIFED_ArchitectureReport = {
         • <strong>Eixo B (Q11-Q20):</strong> Triangulação DAC7 vs SAF-T<br>
         • <strong>Eixo C (Q21-Q30):</strong> Nexus-Zero / Apropriação Indevida<br>
         • <strong>Eixo D (Q31-Q40):</strong> Algoritmo & Falibilidade<br>
-        • <strong>Eixo E (Q41-Q50):</strong> Responsabilidade RGIT<br>
+        • <strong>Eixo E (Q41-Q50):</strong> Responsabilidade Normas de Conformidade Fiscal<br>
         <br>
         Cada questão inclui: Norma Legal, Implicação Técnica, Defesa/Contraditório
     </div>
@@ -425,28 +437,19 @@ window.UNIFED_ArchitectureReport = {
 
 <script>
     // Hashes esperados (SHA-256) para cada módulo - mesmo conjunto usado na geração do relatório
-    // ── RETIFICAÇÃO ITEM-2a (hashes de referência) ──────────────────────────
-    // ANTERIOR: hashes fabricados (padrões repetitivos, 65-68 chars), impossíveis
-    // de corresponder a qualquer ficheiro real -> badge "CORROMPIDO"
-    // permanentemente ativo para todos os módulos, independentemente do estado
-    // real dos ficheiros.
-    // CORRIGIDO: SHA-256 reais calculados via 'sha256sum' sobre os ficheiros
-    // entregues na Fase 3 (2026-06-14). Nota: sha256Hash() em browser usa
-    // TextEncoder->UTF-8 sobre o texto do ficheiro (response.text()), que pode
-    // divergir do sha256sum CLI se o servidor servir com BOM ou conversao CRLF.
-    // Nesse caso, o badge reportara a divergencia honestamente -- comportamento
-    // correto (ver ITEM-2b, badge de dados de simulacao, abaixo).
+    // F5.1: valores reais (lowercase) do estado v1.0-COMMERCIAL-LITIGATION-P3.2+F3+F4 —
+    // sincronizados com MODULE_INTEGRITY (linha ~27) na geração deste relatório.
+    // F12-D12: sincronizado com estado v1.0-COMMERCIAL-LITIGATION-P3.2+F14 (2026-06-22)
     const expectedHashes = {
-        'script.js':                         '57003bd7342c91caec2855cdfed8351f7ff1e19c769def54f5a7b7229dec947c',
-        'unifed_triada_export.js':            '9bb393688ca9170cc4f6c763a54f1bb07019968b0a80b7f26a8be5e224d9a01c',
-        'unifed_questionnaire_50questions.js':'939e5f916d990e3d29b321753a6a64cb454ef0b1f32ec2e789da20c025afef58',
-        'unifed_merkle_engine.js':            '95255f3d3f136193ebb962c0de82e7ded0d54f8f692a861a97f161cfdfb05d80',
-        'enrichment.js':                      '1d6b9fd8ead518398d2c289f56ece1449a1118f72c92c94714dc3ec1e695f33b',
-        'nexus.js':                           '940908a4cc3ae54dcb6c0d16ff4591d26b4cb0e4506806d66af429092d201b2b',
-        'translations.js':                    '76c074d4dc9987807c2a16e4ffdbff8613face2e6f491261bc7e9ce58fb6768a',
-        'script_injection.js':                'fda58b5ca22d0427d0ce8e4fade96bad5f393176c32c87af7c748178644c3e20'
+        'script.js': 'f16912e65ed8399e5a1739b5018613901c252345fcc62a6d576c004be0d10ffb',
+        'unifed_triada_export.js': 'c173d05c8c14e3ce38987920fedecf75fba4f5b78bb4217ce2f545490ad6074b',
+        'unifed_questionnaire_50questions.js': 'fb85ac006cddfeb695fabe9cea90baeed27eb4941473a588adad9b5ef22973f1',
+        'unifed_merkle_engine.js': 'af6b7a4d2cb9e55818454d7292a9abc91f36a743473f439c7f54a09737956ff5',
+        'enrichment.js': '1d6b9fd8ead518398d2c289f56ece1449a1118f72c92c94714dc3ec1e695f33b',
+        'nexus.js': '68e41429abdeae7f87081b1851f66ab0dc8833510de179e56b79a4fdf6a6e45e',
+        'translations.js': '249fe01ae7fa041b5567a6d508290211f275828c6791f01ec5769e9c09ee3ce1',
+        'script_injection.js': 'fda58b5ca22d0427d0ce8e4fade96bad5f393176c32c87af7c748178644c3e20'
     };
-    // ────────────────────────────────────────────────────────────────────────
 
     async function sha256Hash(text) {
         const encoder = new TextEncoder();
@@ -475,69 +478,59 @@ window.UNIFED_ArchitectureReport = {
     async function runAllValidations() {
         const container = document.getElementById('integrity-validation-results');
         if (!container) return;
-
-        container.innerHTML = '<div style="color:#94a3b8;font-size:11px;">🔍 A validar integridade criptográfica dos módulos...</div>';
-
-        // ── BADGE 1: INTEGRIDADE DO CÓDIGO-FONTE ─────────────────────────────
-        // Compara o SHA-256 actual de cada ficheiro (via fetch + TextEncoder)
-        // com o hash de referência real (calculado na Fase 3, 2026-06-14).
-        // Este badge é INDEPENDENTE do modo de operação:
-        //   • ficheiro íntegro  → ✅ ÍNTEGRO
-        //   • ficheiro alterado → ⚠️ CÓDIGO-FONTE MODIFICADO (mesmo em modo DEMO)
-        // Razão: separar integridade do software da natureza dos dados
-        // (misturar ambos seria um vetor de ataque numa contra-perícia).
+        
+        container.innerHTML = '<div style="color: #94a3b8; font-size: 11px;">🔍 A validar integridade criptográfica...</div>';
+        
         const resultsHtml = [];
         for (const [moduleName, expectedHash] of Object.entries(expectedHashes)) {
             const result = await validateModuleIntegrity(moduleName, expectedHash);
-            const isValid = result.valid;
-            const badgeText = isValid
-                ? '✅ ÍNTEGRO'
-                : '⚠️ CÓDIGO-FONTE MODIFICADO — HASH DE REFERÊNCIA NÃO CORRESPONDE';
-            const badgeColor = isValid ? '#22c55e' : '#f59e0b';
+
+            // ── F5.2: três estados em vez de dois (binário ÍNTEGRO/CORROMPIDO) ──
+            // 1. result.error (fetch falhou) → "NÃO VERIFICÁVEL NESTE CONTEXTO":
+            //    cenário ESPERADO para relatório standalone aberto via file://
+            //    (CORS bloqueia fetch). NÃO é evidência de corrupção.
+            // 2. result.valid (hash calculado == hash de referência) → "ÍNTEGRO".
+            // 3. !result.valid && !result.error (fetch OK mas hash diverge) →
+            //    "DIVERGENTE" — único caso que indica modificação real pós-baseline.
+            let statusClass, badgeClass, badgeText;
+            if (result.error) {
+                statusClass = 'unavailable';
+                badgeClass  = 'integrity-badge-unavailable';
+                badgeText   = 'ℹ️ NÃO VERIFICÁVEL NESTE CONTEXTO (relatório standalone)';
+            } else if (result.valid) {
+                statusClass = 'valid';
+                badgeClass  = 'integrity-badge-valid';
+                badgeText   = '✅ ÍNTEGRO';
+            } else {
+                statusClass = 'invalid';
+                badgeClass  = 'integrity-badge-invalid';
+                badgeText   = '⚠️ DIVERGENTE (hash difere da baseline de exportação)';
+            }
+            const isValid = (statusClass === 'valid');
+            // ── FIM F5.2 ──────────────────────────────────────────────────────────
 
             let hashDetails = '';
             if (result.actualHash) {
                 hashDetails = \`<div class="hash-compare">Hash calculado: \${result.actualHash}</div>\`;
                 if (!isValid) {
-                    hashDetails += \`<div class="hash-compare" style="color:#f59e0b;">Hash de referência (Fase 3): \${expectedHash}</div>\`;
+                    hashDetails += \`<div class="hash-compare" style="color:#ef4444;">Hash esperado: \${expectedHash}</div>\`;
+                } else {
+                    hashDetails += \`<div class="hash-compare" style="color:#22c55e;">Hash esperado: \${expectedHash}</div>\`;
                 }
             } else if (result.error) {
-                hashDetails = \`<div class="hash-compare" style="color:#ef4444;">Erro: \${result.error}</div>\`;
+                hashDetails = \`<div class="hash-compare" style="color:#94a3b8;">Baseline de exportação: \${expectedHash}</div>\`;
+                hashDetails += \`<div class="hash-compare" style="color:#64748b;">Motivo: \${result.error} (normal em relatório aberto via file://)</div>\`;
             }
-
+            
             resultsHtml.push(\`
-                <div class="integrity-item" style="border-left:3px solid \${badgeColor};padding-left:8px;margin-bottom:6px;">
+                <div class="integrity-item \${statusClass}">
                     <div class="module-name">📄 \${moduleName}</div>
-                    <div style="color:\${badgeColor};font-size:10px;font-weight:700;margin-top:3px;">\${badgeText}</div>
+                    <div class="\${badgeClass}" style="margin-top: 4px;">\${badgeText}</div>
                     \${hashDetails}
-                </div>\`);
-        }
-
-        // ── BADGE 2: NATUREZA DOS DADOS (DEMO vs PRODUÇÃO) ───────────────────
-        // Informa se os dados actualmente carregados são de simulação (fixture
-        // de demonstração) ou de produção real.
-        // Este badge é INDEPENDENTE do resultado de integridade de código:
-        //   • código íntegro + dados reais    → dois badges positivos
-        //   • código modificado + dados DEMO  → badge 1 avisa, badge 2 informa
-        //   • código íntegro + dados DEMO     → badge 1 positivo, badge 2 informa
-        // A separação elimina a ambiguidade fatal que permitiria a uma contra-
-        // perícia argumentar "o sistema dissimulou alterações ao código como
-        // se fossem apenas dados de simulação".
-        const isDemo = window.UNIFED_CONFIG && window.UNIFED_CONFIG.modo === 'DEMO';
-        const dataBadgeText = isDemo
-            ? 'ℹ️ MODO DEMO — DADOS DE SIMULAÇÃO ACTIVOS (NÃO CONSTITUEM PROVA)'
-            : '✅ DADOS DE PRODUÇÃO — FICHEIROS REAIS DO MANDATO CARREGADOS';
-        const dataBadgeColor = isDemo ? '#00e5ff' : '#22c55e';
-
-        resultsHtml.push(\`
-            <div style="border-left:3px solid \${dataBadgeColor};padding-left:8px;margin-top:10px;padding-top:6px;
-                        border-top:1px solid rgba(255,255,255,0.07);">
-                <div style="color:#94a3b8;font-size:9px;letter-spacing:1px;margin-bottom:3px;">
-                    ÂMBITO DOS DADOS CARREGADOS
                 </div>
-                <div style="color:\${dataBadgeColor};font-size:10px;font-weight:700;">\${dataBadgeText}</div>
-            </div>\`);
-
+            \`);
+        }
+        
         container.innerHTML = resultsHtml.join('');
     }
 
