@@ -1,0 +1,8 @@
+# CRÍTICO: nunca remover esta linha. .env contém PASSWORD_HASH_EXPECTED real.
+.env
+
+node_modules/
+*.log
+*.pem
+*.key
+*.crt

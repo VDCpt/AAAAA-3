@@ -1,0 +1,123 @@
+{
+  "_meta": {
+    "ficheiro": "interfaces_contract.json",
+    "proposito": "Especificação formal das APIs públicas window.UNIFEDSystem e window.UNIFED_MerkleEngine, para impossibilitar alegações de comportamento não documentado em sede de contraditório.",
+    "metodologia": "Todos os campos e métodos aqui documentados foram extraídos por inspecção directa do código-fonte (script.js, unifed_merkle_engine.js) no estado correspondente ao Master Hash abaixo indicado. Nenhum campo foi inferido, assumido ou inventado sem confirmação textual no código.",
+    "masterHashReferencia": "(preencher com o Master Hash do lote no momento da consulta — ver UNIFED_STATE.md)",
+    "versaoSistema": "v1.0-COMMERCIAL-LITIGATION-P3.2+F11",
+    "geradoEm": "2026-06-18",
+    "normas": ["ISO/IEC 27037:2012", "Art. 125.º CPP", "D.L. n.º 28/2019"]
+  },
+
+  "windowUNIFEDSystem": {
+    "descricao": "Objecto global de estado do sistema ('Single Source of Truth'). Declarado com 'let UNIFEDSystem' (script.js, linha ~4009) e exposto como window.UNIFEDSystem imediatamente a seguir ('window.UNIFEDSystem = UNIFEDSystem;').",
+    "notaArquitectural": "Existe um SEGUNDO objecto, criado condicionalmente em script.js linha ~151 ('if (!window.UNIFEDSystem) { window.UNIFEDSystem = {config:{...}, data:{...}, analysis:{...}} }'), que é IMEDIATAMENTE SUBSTITUÍDO pela atribuição da linha ~4109. Este objecto inicial (com a propriedade 'config') não é, na prática, acessível em runtime após a inicialização do script — não consta deste contrato por ser um artefacto morto, diagnosticado e formalmente averbado em UNIFED_MANIFESTO_DEPENDENCIAS.md (D15/D16).",
+    "campos": {
+      "version":            { "tipo": "string",  "valorInicial": "v1.0-COMMERCIAL-LITIGATION", "descricao": "Versão estática de fallback; a versão corrente do sistema é lida via window.UNIFED_VERSION.full (version.js), não deste campo." },
+      "name":               { "tipo": "string",  "valorInicial": "UNIFED - PROBATUM" },
+      "sessionId":          { "tipo": "string",  "origem": "generateSessionId()", "descricao": "Identificador de sessão/processo, formato 'UNIFED-XXXXXXXX-XXXXX'." },
+      "selectedYear":       { "tipo": "number",  "valorInicial": "new Date().getFullYear()" },
+      "selectedPeriodo":    { "tipo": "string",  "valorInicial": "'anual'", "valoresPossiveis": ["'anual'", "'2s'"] },
+      "selectedPlatform":   { "tipo": "string",  "valorInicial": "'outra'" },
+      "client":             { "tipo": "object|null", "valorInicial": null },
+      "demoMode":           { "tipo": "boolean", "valorInicial": false, "descricao": "true apenas durante activateDemoMode(); consumido por unifed_triada_export.js::deepSanitizePayload() (guard introduzido em F11.2) para impedir sanitização de dados reais." },
+      "processing":         { "tipo": "boolean", "valorInicial": false },
+      "performanceTiming":  { "tipo": "object",  "campos": { "start": "number", "end": "number" } },
+      "logs":               { "tipo": "array" },
+      "masterHash":         { "tipo": "string",  "valorInicial": "''", "descricao": "Hash SHA-256 (UPPERCASE) de 64 caracteres após selagem. Watcher reactivo instalado em script.js (installMasterHashWatcher, R-WATCH-4) via Object.defineProperty(getter/setter) — qualquer atribuição com 64 caracteres dispara regeneração de QR Code e re-sincronização do Dashboard (Fase 10, Bloco 3)." },
+      "processedFiles":     { "tipo": "Set" },
+      "dataMonths":         { "tipo": "Set",     "descricao": "Conjunto de chaves de mês (formato 'YYYYMM') com dados carregados. .size usado como divisor em vários cálculos de média mensal (mesesDados)." },
+      "fileSources":        { "tipo": "Map" },
+      "monthlyData":        { "tipo": "object",  "descricao": "Mapa { 'YYYYMM': { ganhos, despesas, ganhosLiq, saftBruto, saftIliq, saftIva, faturaPlataforma } }. Consumido por performForensicCrossings() para a série mensal do motor Z-Score IC99% (calcularDanoConservador)." },
+      "documents":          { "tipo": "object",  "descricao": "Estrutura de documentos processados por tipo (control, saft, invoices, statements, dac7), cada um com {files, hashes, totals}." },
+      "analysis": {
+        "tipo": "object",
+        "campos": {
+          "totals":     { "tipo": "object", "campos": ["saftBruto","saftIliquido","saftIva","ganhos","despesas","ganhosLiquidos","faturaPlataforma","dac7Q1","dac7Q2","dac7Q3","dac7Q4","dac7TotalPeriodo"] },
+          "twoAxis":    { "tipo": "object", "campos": ["revenueGap","expenseGap","revenueGapActive","expenseGapActive"] },
+          "crossings": {
+            "tipo": "object",
+            "descricao": "Objecto mutado in-place por performForensicCrossings(). Fonte ÚNICA de verdade para os valores de impacto macroeconómico (D14, UNIFED_MANIFESTO_DEPENDENCIAS.md).",
+            "campos": {
+              "discrepanciaCritica":        "number — BTOR − BTF, base da 'Prova Rainha'",
+              "percentagemOmissao":         "number — percentagem de omissão de custos",
+              "btor":                       "number",
+              "btf":                        "number",
+              "impactoMensalMercado":       "number — saída do motor Z-Score IC99% (calcularDanoConservador, Modo B), NÃO um escalar naive",
+              "impactoAnualMercado":        "number",
+              "impactoSeteAnosMercado":     "number — consumido por unifed_triada_export.js (PDF Analista e Parecer Técnico Forense) como fonte única, desde F8/D14",
+              "ivaFalta":                   "number — IVA Cenário A (23%)",
+              "ivaFalta6":                  "number — IVA Cenário B (6%)"
+            }
+          },
+          "verdict":            { "tipo": "string|null" },
+          "evidenceIntegrity":  { "tipo": "array" },
+          "selectedQuestions":  { "tipo": "array" },
+          "mediaMensalReal": {
+            "tipo": "number",
+            "introduzidoEm": "Fase 11 (F11.3), 2026-06-18",
+            "formula": "cross.discrepanciaCritica / mesesDados",
+            "descricao": "Campo ADITIVO, exposto no fim de performForensicCrossings(). Representa a média mensal de omissão do CASO CONCRETO, distinta e independente de analysis.crossings.impactoMensalMercado (que reflecte a projecção conservadora IC99% para 38.000 operadores). NÃO substitui nem altera nenhum campo de crossings."
+          }
+        }
+      },
+      "forensicMetadata":   { "tipo": "object|null" },
+      "chart":              { "tipo": "object|null" },
+      "discrepancyChart":   { "tipo": "object|null" },
+      "counts":             { "tipo": "object", "campos": { "total": "number" } },
+      "auxiliaryData":      { "tipo": "object", "campos": ["campanhas","portagens","gorjetas","cancelamentos","totalNaoSujeitos","processedFrom","extractedAt"] }
+    },
+    "eventosDisparados": {
+      "UNIFED_ANALYSIS_COMPLETE": {
+        "disparadoEm": "script.js, dentro de activateDemoMode()",
+        "payload": {
+          "systemData":   "object — referência completa a UNIFEDSystem",
+          "danoSeteAnos": "number — UNIFEDSystem.analysis.crossings.impactoSeteAnosMercado no momento do disparo (campo adicionado em F11.1)",
+          "masterHash":   "string — UNIFEDSystem.masterHash no momento do disparo (campo adicionado em F11.1)",
+          "timestamp":    "string ISO-8601 UTC (campo adicionado em F11.1)"
+        },
+        "efeitosColaterais": "Registo simultâneo em ForensicLogger.addEntry('ANALYSIS_COMPLETE', {...}) — introduzido em F11.1."
+      }
+    }
+  },
+
+  "windowUNIFED_MerkleEngine": {
+    "descricao": "IIFE exposta como window.UNIFED_MerkleEngine (unifed_merkle_engine.js, linha 11). Motor criptográfico SHA-256 com Merkle Tree para Selective Disclosure (eIDAS 2.0 Selective Disclosure).",
+    "metodosPublicos": {
+      "generateMerkleRoot": {
+        "assinatura": "async function(selectedQuestions): Promise<{root, tree, leafCount, timestamp}>",
+        "descricao": "Constrói a árvore de Merkle a partir das perguntas seleccionadas (TOP3)."
+      },
+      "generateProofForQuestion": {
+        "assinatura": "async function(tree, questionId, allQuestions): Promise<object>",
+        "descricao": "Gera prova de inclusão (Merkle proof) para uma pergunta específica, sem revelar a árvore completa."
+      },
+      "validateIntegrity": {
+        "assinatura": "async function(questions, merkleRoot): Promise<boolean>",
+        "descricao": "Recalcula a raiz a partir das perguntas fornecidas e compara com a raiz declarada."
+      },
+      "exportMerkleSignature": {
+        "assinatura": "function(merkleRoot, selectedQuestionCount, sessionSalt): object",
+        "descricao": "Produz um objecto de assinatura/instruções de verificação independente (não revela a base de dados completa nem o salt de sessão na íntegra — apenas uma referência parcial)."
+      },
+      "generateMasterHash": {
+        "assinatura": "async function(evidenceCollection: Array<{hashSHA256: string}>): Promise<string>",
+        "descricao": "Concatena os hashSHA256 de cada evidência e aplica SHA-256 (via sha256Hash interna), devolvendo o Master Hash de 64 caracteres hexadecimais, SEM truncamento.",
+        "validacoes": [
+          "Lança Error se evidenceCollection não for um array",
+          "Lança Error se evidenceCollection estiver vazio"
+        ],
+        "consumidoPor": "unifed_merkle_engine.js::gerarMasterHashFinal() (Path 2 de fallback) — função confirmada SEM outros consumidores no codebase (D8/D9, código morto fora deste caminho)."
+      }
+    },
+    "casePolicy": {
+      "hashCase": "UPPERCASE em todos os caminhos internos (sha256Hash, generateMasterHash, gerarMasterHashFinal — normalizado em F4/D8). MODULE_INTEGRITY em unifed_architecture_report.js usa lowercase por desenho próprio, documentado em D8."
+    }
+  },
+
+  "limitacoesDeclaradas": [
+    "Este contrato documenta o estado do código no momento da sua geração (Fase 11). Qualquer alteração estrutural futura a UNIFEDSystem ou UNIFED_MerkleEngine deve ser acompanhada de actualização deste ficheiro — não há mecanismo automático de sincronização.",
+    "window.UNIFED_TSA_CONFIG (config.js) não está documentado aqui por ser um namespace separado, NÃO carregado no sistema vivo (D13 — documental apenas).",
+    "A propriedade 'config' do objecto window.UNIFEDSystem criado em script.js linha ~151 é estruturalmente inacessível em runtime (ver notaArquitectural acima) e não consta deste contrato."
+  ]
+}

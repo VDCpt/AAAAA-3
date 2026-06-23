@@ -5546,7 +5546,8 @@ function activateDemoMode() {
     const demoBtn = document.getElementById('demoModeBtn');
     if (demoBtn) {
         demoBtn.disabled = true;
-        demoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> CARREGANDO...';
+        // [UNIF-L6] D-LANG-02 RESOLVIDO: ternário locale-aware elimina literal PT-PT hardcoded
+        demoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (window.currentLang === 'en' ? 'LOADING...' : 'CARREGANDO...');
     }
 
     logAudit('🚀 ATIVANDO CASO REAL (ANONIMIZADO) v1.0-COMMERCIAL-LITIGATION · SUJEITO PASSIVO ALFA · 2024 · 2.º SEM...', 'info');
@@ -7798,7 +7799,7 @@ async function generateMasterHash() {
         client: UNIFEDSystem.client,
         docs: UNIFEDSystem.documents,
         session: UNIFEDSystem.sessionId,
-        months: Array.from(UNIFEDSystem.dataMonths),
+        months: Array.from(UNIFEDSystem.dataMonths || []),
         twoAxis: UNIFEDSystem.analysis.twoAxis,
         timestamp: Date.now(),
         version: UNIFEDSystem.version

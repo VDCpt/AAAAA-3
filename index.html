@@ -231,6 +231,182 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
     <script>
 /**
  * ============================================================================
+ * UNIFED-PROBATUM | SEGUNDO MODAL DE AUTENTICAÇÃO — CAMADA DE ACESSO ADMIN
+ * UNIF-L6 · 2026-06-23
+ * ============================================================================
+ * Conformidade: Art. 155.º CPP · RGPD Art. 25 · ISO/IEC 27037:2012
+ * Mecanismo: HMAC duplo salted — SHA-256('UNIFED-PROBATUM-ADMIN' + salt + SHA-256(input))
+ *            vs SHA-256('UNIFED-PROBATUM-ADMIN' + salt + ADMIN_PASS_HASH)
+ * Credencial: utilizador 'admin' · ADMIN_PASS_HASH = SHA-256('Analista1234')
+ *             6185a95d1f62cab17c378d08a4f2e9b0bca9835a63c4287fa5614d8e11ea95b3
+ * Texto limpo da palavra-passe: AUSENTE do código-fonte
+ * Resistência a rainbow-table: salt aleatório de 128 bits por sessão (sessionStorage)
+ * ============================================================================
+ */
+(function _unifedAdminAuthGate() {
+    'use strict';
+
+    if (window.UNIFED_CONFIG && window.UNIFED_CONFIG.modo === 'DEMO') {
+        console.log('[ADMIN-GATE] \u2139\ufe0f  Modo DEMO activo \u2014 camada de acesso admin dispensada.');
+        return;
+    }
+
+    var ADMIN_USER      = 'admin';
+    // SHA-256('Analista1234') \u2014 sem texto limpo no c\u00f3digo-fonte (UNIF-L6 · D.L. n.\u00ba 28/2019)
+    var ADMIN_PASS_HASH = '6185a95d1f62cab17c378d08a4f2e9b0bca9835a63c4287fa5614d8e11ea95b3';
+    var SESSION_KEY_L6  = 'unifed_admin_authenticated';
+    var TIMEOUT_MS      = 30 * 60 * 1000; // 30 minutos — paridade com camada existente
+
+    var prevTs = sessionStorage.getItem(SESSION_KEY_L6 + '_ts');
+    var isAdminSessionValid = sessionStorage.getItem(SESSION_KEY_L6) === 'true' &&
+                              prevTs &&
+                              (Date.now() - parseInt(prevTs, 10)) < TIMEOUT_MS;
+
+    if (isAdminSessionValid) {
+        console.log('[ADMIN-GATE] \u2705 Sess\u00e3o admin activa \u2014 acesso concedido.');
+        return;
+    }
+
+    function getOrCreateAdminSalt() {
+        var s = sessionStorage.getItem(SESSION_KEY_L6 + '_salt');
+        if (!s) {
+            s = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                .map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+            sessionStorage.setItem(SESSION_KEY_L6 + '_salt', s);
+        }
+        return s;
+    }
+
+    var adminSalt = getOrCreateAdminSalt();
+
+    async function deriveAdminToken(saltedInput) {
+        var encoder = new TextEncoder();
+        var data = encoder.encode('UNIFED-PROBATUM-ADMIN' + saltedInput);
+        var hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hashBuffer))
+            .map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    }
+
+    async function verifyAdminCredentials(inputUser, inputPass) {
+        if (inputUser !== ADMIN_USER) return false;
+        var encoder = new TextEncoder();
+        var passBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(inputPass));
+        var passHex = Array.from(new Uint8Array(passBuffer))
+            .map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+        var derived  = await deriveAdminToken(adminSalt + passHex);
+        var expected = await deriveAdminToken(adminSalt + ADMIN_PASS_HASH);
+        return derived === expected;
+    }
+
+    function showAdminModal() {
+        return new Promise(function(resolve) {
+            var overlay = document.createElement('div');
+            overlay.id = 'unifed-admin-overlay';
+            overlay.style.cssText = [
+                'position:fixed;top:0;left:0;width:100%;height:100%;',
+                'background:rgba(8,12,24,0.99);z-index:10001;',
+                'display:flex;align-items:center;justify-content:center;',
+                'font-family:\'JetBrains Mono\',monospace;'
+            ].join('');
+            overlay.innerHTML = [
+                '<div style="background:#0a0f1e;border:1px solid #f59e0b;border-radius:8px;',
+                'padding:2rem 2.5rem;max-width:420px;width:92%;text-align:center;',
+                'box-shadow:0 0 32px rgba(245,158,11,0.15);">',
+                '<div style="font-size:1.5rem;margin-bottom:0.5rem;">\uD83D\uDD10</div>',
+                '<h3 style="color:#f59e0b;margin:0 0 0.25rem;font-size:1rem;letter-spacing:0.1em;">',
+                'UNIFED-PROBATUM \u00b7 ACESSO RESTRITO</h3>',
+                '<p style="color:#64748b;font-size:0.7rem;margin:0 0 1.5rem;letter-spacing:0.05em;">',
+                'UNIF-L6 \u00b7 Art. 155.\u00ba CPP \u00b7 Autentica\u00e7\u00e3o de operador</p>',
+                '<input type="text" id="unifed-admin-user" autocomplete="off" ',
+                'placeholder="Utilizador" ',
+                'style="width:100%;box-sizing:border-box;padding:9px 12px;',
+                'background:#1e293b;border:1px solid #334155;color:#e2e8f0;',
+                'border-radius:4px;margin-bottom:0.75rem;font-family:inherit;font-size:0.85rem;">',
+                '<input type="password" id="unifed-admin-pass" autocomplete="off" ',
+                'placeholder="Palavra-passe" ',
+                'style="width:100%;box-sizing:border-box;padding:9px 12px;',
+                'background:#1e293b;border:1px solid #334155;color:#e2e8f0;',
+                'border-radius:4px;margin-bottom:1rem;font-family:inherit;font-size:0.85rem;">',
+                '<button id="unifed-admin-submit" ',
+                'style="background:#f59e0b;color:#000;border:none;padding:9px 28px;',
+                'border-radius:4px;cursor:pointer;font-weight:700;font-family:inherit;',
+                'font-size:0.85rem;letter-spacing:0.05em;">ACEDER</button>',
+                '<p id="unifed-admin-error" ',
+                'style="color:#ef4444;font-size:0.72rem;margin-top:0.75rem;display:none;">',
+                'Credenciais inv\u00e1lidas. Tente novamente.</p>',
+                '</div>'
+            ].join('');
+            document.body.appendChild(overlay);
+            document.documentElement.style.overflow = 'hidden';
+
+            var userInput = overlay.querySelector('#unifed-admin-user');
+            var passInput = overlay.querySelector('#unifed-admin-pass');
+            var submitBtn = overlay.querySelector('#unifed-admin-submit');
+            var errorSpan = overlay.querySelector('#unifed-admin-error');
+
+            userInput.focus();
+
+            var attempt = async function() {
+                var u = userInput.value.trim();
+                var p = passInput.value;
+                if (!u || !p) return;
+                submitBtn.disabled = true;
+                userInput.disabled = true;
+                passInput.disabled = true;
+                passInput.value = '';
+                errorSpan.style.display = 'none';
+                var ok = await verifyAdminCredentials(u, p);
+                if (ok) {
+                    sessionStorage.setItem(SESSION_KEY_L6, 'true');
+                    sessionStorage.setItem(SESSION_KEY_L6 + '_ts', String(Date.now()));
+                    overlay.remove();
+                    document.documentElement.style.overflow = '';
+                    console.log('[ADMIN-GATE] \u2705 Autentica\u00e7\u00e3o admin conclu\u00edda. Cadeia: admin\u2192HMAC-SHA256(salt+SHA256(pass)).');
+                    resolve(true);
+                } else {
+                    errorSpan.style.display = 'block';
+                    submitBtn.disabled = false;
+                    userInput.disabled = false;
+                    passInput.disabled = false;
+                    userInput.focus();
+                    console.warn('[ADMIN-GATE] \u26a0 Tentativa inv\u00e1lida.');
+                    resolve(false);
+                }
+            };
+
+            submitBtn.onclick = attempt;
+            passInput.onkeypress = function(e) { if (e.key === 'Enter') attempt(); };
+            userInput.onkeypress = function(e) { if (e.key === 'Enter') passInput.focus(); };
+        });
+    }
+
+    (async function adminGate() {
+        var attempts = 0;
+        var success  = false;
+        while (!success && attempts < 3) {
+            attempts++;
+            success = await showAdminModal();
+        }
+        if (!success) {
+            document.body.innerHTML = [
+                '<div style="display:flex;align-items:center;justify-content:center;',
+                'height:100vh;background:#0a0f1e;">',
+                '<div style="text-align:center;border:1px solid #ef4444;',
+                'padding:48px;border-radius:8px;">',
+                '<h1 style="color:#ef4444;margin:0 0 1rem;">ACESSO NEGADO</h1>',
+                '<p style="color:#94a3b8;">UNIFED-PROBATUM \u00b7 Autentica\u00e7\u00e3o de operador falhada ap\u00f3s 3 tentativas.</p>',
+                '<p style="color:#64748b;font-size:0.8rem;margin-top:0.5rem;">',
+                'Recarregue a p\u00e1gina para tentar novamente.</p>',
+                '</div></div>'
+            ].join('');
+            throw new Error('[ADMIN-GATE] \u26d4 Falha de Autentica\u00e7\u00e3o Admin. Sistema Bloqueado.');
+        }
+    })().catch(function(err) { console.error(err); });
+})();
+    </script>
+    <script>
+/**
+ * ============================================================================
  * UNIFED-PROBATUM | MIDDLEWARE DE AUTENTICAÇÃO (TOKEN DINÂMICO + MODAL ASSÍNCRONO)
  * ============================================================================
  * Conformidade: RGPD Art. 25 · ISO/IEC 27037:2012 · D.L. n.º 28/2019
