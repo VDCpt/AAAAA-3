@@ -44,6 +44,12 @@
                 if (isBlocked(url)) {
                     console.warn(LOG_PREFIX + " XHR bloqueado:", url);
                     this._aborted = true;
+                    // RT-06: anular send() e setRequestHeader() para blindar
+                    // código que não verifique _aborted antes de prosseguir
+                    this.send = function() {
+                        console.warn(LOG_PREFIX + ' XHR.send() interceptado e anulado (domínio bloqueado).');
+                    };
+                    this.setRequestHeader = function() {};
                     return;
                 }
                 return originalOpen.apply(this, arguments);
@@ -56,29 +62,28 @@
          BIBLIOTECAS CRÍTICAS (CARREGADAS VIA CDN – COMPATÍVEL COM GITHUB PAGES)
          ──────────────────────────────────────────────────────────────────────────── -->
     <!-- CryptoJS (hash SHA‑256) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script src="vendor/js/crypto-js.min.js" integrity="sha384-57VRFGvLpSky5EqUImBJSOkJI+6xYMONZqn8Zh70E+1DyMPpN1vQkaJaN4YqRmln" crossorigin="anonymous"></script>
 
     <!-- pdfMake (geração de PDF) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
+    <script src="vendor/js/pdfmake.min.js" integrity="sha384-vseuUuO/VRMn00lXYd5m/Pk4l/7RjMqhXGf6G0RALy+On0txYb39dQsUQDAd7q5L" crossorigin="anonymous"></script>
+    <script src="vendor/js/vfs_fonts.js" integrity="sha384-zmD5tDN2awbMigS/yVcxHObSsdXXKh/27Y/bSII38WfNl+D7O/aVCIteAXsLY3p3" crossorigin="anonymous"></script>
 
     <!-- Chart.js (gráficos ATF) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="vendor/js/chart.umd.min.js" integrity="sha384-FcQlsUOd0TJjROrBxhJdUhXTUgNJQxTMcxZe6nHbaEfFL1zjQ+bq/uRoBQxb0KMo" crossorigin="anonymous"></script>
 
     <!-- QRCode.js (QR codes) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="vendor/js/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
 
     <!-- JSZip (compactação dos pacotes .zip) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="vendor/js/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
 
     <!-- jsPDF (fallback para alguns PDFs) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="vendor/js/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 
     <!-- Outras bibliotecas auxiliares (PapaParse, pdf.js, docx) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/docx@7.8.2/build/index.js"
-            onerror="this.onerror=null;this.src='https://unpkg.com/docx@7.8.2/build/index.js'"></script>
+    <script src="vendor/js/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous"></script>
+    <script src="vendor/js/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous"></script>
+    <script src="vendor/js/docx.index.js" integrity="sha384-zjTqOObJTD6OT6CUn8mSpDY+crIiP0cX457OjcZosSATiUFbmdXa9KRScjfLVxFH" crossorigin="anonymous"></script>
 
     <!-- Verificação de carregamento do pdfMake -->
     <script>
@@ -96,7 +101,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="vendor/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous">
 
     <!-- FOLHAS DE ESTILO (locais) -->
     <link rel="stylesheet" href="style.css">
@@ -192,7 +197,16 @@
             overflow-y: auto;
             padding: 0.5rem;
         }
-    </style>
+    
+/* ── UNIFED FORENSIC i18n — MUTUAL EXCLUSION BINDING (UNIF-L7) ────────────
+   Garante ocultação de tags inativas. Elimina colisões lexicais PT/EN.
+   Requisito: body[data-lang] deve ser definido no arranque (script.js C4)
+   e sincronizado em cada troca de idioma (script.js C1+C3).             */
+body[data-lang="pt"] [data-en] { display: none !important; }
+body[data-lang="en"] [data-pt] { display: none !important; }
+/* ── Fallback: sem data-lang no body, comportamento sem alteração ─────── */
+
+</style>
 
     <!-- Módulos internos (ordem de carga corrigida) -->
     <script>
@@ -237,8 +251,8 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
  * Conformidade: Art. 155.º CPP · RGPD Art. 25 · ISO/IEC 27037:2012
  * Mecanismo: HMAC duplo salted — SHA-256('UNIFED-PROBATUM-ADMIN' + salt + SHA-256(input))
  *            vs SHA-256('UNIFED-PROBATUM-ADMIN' + salt + ADMIN_PASS_HASH)
- * Credencial: utilizador 'admin' · ADMIN_PASS_HASH = SHA-256('Analista1234')
- *             6185a95d1f62cab17c378d08a4f2e9b0bca9835a63c4287fa5614d8e11ea95b3
+ * Credencial: utilizador 'admin' · ADMIN_PASS_HASH = SHA-256([REDACTED — alterar via generate-hash.js antes de produção])
+ *             02d2dcdd43c65b9d2b85cceb63a3d8d16fb3e8f4387fa9dc29a2a5fab81a8330 (renovado UNIF-L6.1)
  * Texto limpo da palavra-passe: AUSENTE do código-fonte
  * Resistência a rainbow-table: salt aleatório de 128 bits por sessão (sessionStorage)
  * ============================================================================
@@ -252,8 +266,8 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
     }
 
     var ADMIN_USER      = 'admin';
-    // SHA-256('Analista1234') \u2014 sem texto limpo no c\u00f3digo-fonte (UNIF-L6 · D.L. n.\u00ba 28/2019)
-    var ADMIN_PASS_HASH = '6185a95d1f62cab17c378d08a4f2e9b0bca9835a63c4287fa5614d8e11ea95b3';
+    // SHA-256([REDACTED]) \u2014 sem texto limpo no c\u00f3digo-fonte (UNIF-L6 · D.L. n.\u00ba 28/2019)
+    var ADMIN_PASS_HASH = '02d2dcdd43c65b9d2b85cceb63a3d8d16fb3e8f4387fa9dc29a2a5fab81a8330'; // SHA-256 — regenerado UNIF-L6.1 (ver CREDENCIAIS_ADMIN_CONFIDENCIAL.txt)
     var SESSION_KEY_L6  = 'unifed_admin_authenticated';
     var TIMEOUT_MS      = 30 * 60 * 1000; // 30 minutos — paridade com camada existente
 
@@ -1013,37 +1027,37 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
 
       <div class="pure-data-block">
         <div class="pure-data-label" id="pure-label-ganhos" data-pt="Ganhos (Extrato Ledger)" data-en="Earnings (Ledger Statement)">Ganhos (Extrato Ledger)</div>
-        <div id="pure-ganhos-reais" class="pure-data-value pure-value-primary" data-i18n-ignore>€ 0,00</div>
+        <div id="pure-ganhos-reais" class="pure-data-value pure-value-primary" data-i18n-ignore>0,00 €</div>
         <div class="pure-data-sub" id="pure-sub-ganhos" data-pt="Fonte primária · Viagens efectuadas" data-en="Primary source · Trips completed">Fonte primária · Viagens efectuadas</div>
       </div>
 
       <div class="pure-data-block">
         <div class="pure-data-label" id="pure-label-despesas" data-pt="Despesas / Comissões (BTOR)" data-en="Expenses / Commissions (BTOR)">Despesas / Comissões (BTOR)</div>
-        <div id="pure-despesas-reais" class="pure-data-value pure-value-warn" data-i18n-ignore>€ 0,00</div>
+        <div id="pure-despesas-reais" class="pure-data-value pure-value-warn" data-i18n-ignore>0,00 €</div>
         <div class="pure-data-sub" id="pure-sub-despesas" data-pt="Retidas pela plataforma (extrato)" data-en="Withheld by platform (statement)">Retidas pela plataforma (extrato)</div>
       </div>
 
       <div class="pure-data-block">
         <div class="pure-data-label" id="pure-label-liquido" data-pt="Ganhos Líquidos (Extrato)" data-en="Net Earnings (Statement)">Ganhos Líquidos (Extrato)</div>
-        <div id="pure-liquido-real" class="pure-data-value pure-value-neutral" data-i18n-ignore>€ 0,00</div>
+        <div id="pure-liquido-real" class="pure-data-value pure-value-neutral" data-i18n-ignore>0,00 €</div>
         <div class="pure-data-sub" id="pure-sub-liquido" data-pt="Ganhos − Despesas (extrato real)" data-en="Earnings − Expenses (actual statement)">Ganhos − Despesas (extrato real)</div>
       </div>
 
       <div class="pure-data-block">
         <div class="pure-data-label" id="pure-label-saft" data-pt="SAF-T Bruto (Declarado)" data-en="SAF-T Gross (Declared)">SAF-T Bruto (Declarado)</div>
-        <div id="pure-saft-bruto" class="pure-data-value pure-value-neutral" data-i18n-ignore>€ 0,00</div>
+        <div id="pure-saft-bruto" class="pure-data-value pure-value-neutral" data-i18n-ignore>0,00 €</div>
         <div class="pure-data-sub" id="pure-sub-saft" data-pt="Faturação interna plataforma" data-en="Platform internal invoicing">Faturação interna plataforma</div>
       </div>
 
       <div class="pure-data-block">
         <div class="pure-data-label" id="pure-label-dac7" data-pt="DAC7 (Reportado à AT)" data-en="DAC7 (Reported to TA)">DAC7 (Reportado à AT)</div>
-        <div id="pure-dac7-total" class="pure-data-value pure-value-neutral" data-i18n-ignore>€ 0,00</div>
+        <div id="pure-dac7-total" class="pure-data-value pure-value-neutral" data-i18n-ignore>0,00 €</div>
         <div class="pure-data-sub" id="pure-sub-dac7" data-pt="2.º Semestre 2024 (Q4 activo)" data-en="2nd Semester 2024 (Q4 active)">2.º Semestre 2024 (Q4 activo)</div>
       </div>
 
       <div class="pure-data-block">
         <div class="pure-data-label" id="pure-label-fatura" data-pt="Comissões Faturadas (BTF)" data-en="Invoiced Commissions (BTF)">Comissões Faturadas (BTF)</div>
-        <div id="pure-fatura-btf" class="pure-data-value pure-value-warn" data-i18n-ignore>€ 0,00</div>
+        <div id="pure-fatura-btf" class="pure-data-value pure-value-warn" data-i18n-ignore>0,00 €</div>
         <div class="pure-data-sub" id="pure-sub-fatura" data-pt="Valor em faturas emitidas (PT1124/PT1125)" data-en="Value in issued invoices (PT1124/PT1125)">Valor em faturas emitidas (PT1124/PT1125)</div>
       </div>
 
@@ -1086,25 +1100,25 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
             <td style="padding:14px 12px; vertical-align:middle; border-right:1px solid rgba(239,68,68,0.15); border-bottom:1px solid rgba(239,68,68,0.1); background:rgba(239,68,68,0.04); border-left:3px solid #ef4444;">
               <div style="font-size:0.7rem; font-weight:800; color:#ef4444; margin-bottom:4px;" id="pure-sg2-label"
                    data-pt="🔫 PROVA RAINHA II" data-en="🔫 SMOKING GUN II">🔫 PROVA RAINHA II</div>
-              <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.4;">Omissão de Faturação<br>(Subdeclaração)</div>
+              <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.4;" data-pt="Omissão de Faturação<br>(Subdeclaração)" data-en="Invoicing Omission<br>(Underreporting)" id="pure-sg2-subdesc">Omissão de Faturação<br>(Subdeclaração)</div>
             </td>
             <td style="padding:14px 12px; vertical-align:middle; text-align:center; border-right:1px solid rgba(239,68,68,0.1); border-bottom:1px solid rgba(239,68,68,0.1); background:#0a1628;">
               <div style="font-size:0.62rem; color:#64748b; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;"
                    id="pure-sg2-btor-label" data-pt="BTOR (Extrato)" data-en="BTOR (Statement)">BTOR (Extrato)</div>
               <div style="font-size:1.05rem; font-weight:800; color:#f8fafc; font-family:'JetBrains Mono',monospace;"
-                   id="pure-sg2-btor-val" data-i18n-ignore>€ 0,00</div>
+                   id="pure-sg2-btor-val" data-i18n-ignore>0,00 €</div>
             </td>
             <td style="padding:14px 12px; vertical-align:middle; text-align:center; border-right:1px solid rgba(239,68,68,0.1); border-bottom:1px solid rgba(239,68,68,0.1); background:#0a1628;">
               <div style="font-size:0.62rem; color:#64748b; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;"
                    id="pure-sg2-btf-label" data-pt="BTF (Fatura)" data-en="BTF (Invoice)">BTF (Fatura)</div>
               <div style="font-size:1.05rem; font-weight:800; color:#f8fafc; font-family:'JetBrains Mono',monospace;"
-                   id="pure-sg2-btf-val" data-i18n-ignore>€ 0,00</div>
+                   id="pure-sg2-btf-val" data-i18n-ignore>0,00 €</div>
             </td>
             <td style="padding:14px 12px; vertical-align:middle; text-align:center; border-right:1px solid rgba(239,68,68,0.15); border-bottom:1px solid rgba(239,68,68,0.1); background:rgba(239,68,68,0.07);">
               <div style="font-size:0.65rem; font-weight:800; color:#ef4444; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;"
                    id="pure-sg2-delta-label" data-pt="OMISSÃO DE FATURAÇÃO" data-en="INVOICE OMISSION">OMISSÃO DE FATURAÇÃO</div>
               <div style="font-size:1.3rem; font-weight:900; color:#ef4444; font-family:'JetBrains Mono',monospace; line-height:1.1;"
-                   id="pure-sg2-delta" data-i18n-ignore>€ 0,00</div>
+                   id="pure-sg2-delta" data-i18n-ignore>0,00 €</div>
               <div style="font-size:0.82rem; font-weight:600; color:#f87171; margin-top:4px;"
                    id="pure-sg2-pct" data-i18n-ignore>(0%)</div>
             </td>
@@ -1122,25 +1136,25 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
             <td style="padding:14px 12px; vertical-align:middle; border-right:1px solid rgba(245,158,11,0.15); background:rgba(245,158,11,0.04); border-left:3px solid #f59e0b;">
               <div style="font-size:0.7rem; font-weight:800; color:#f59e0b; margin-bottom:4px;" id="pure-sg1-label"
                    data-pt="🔫 PROVA RAINHA I" data-en="🔫 SMOKING GUN I">🔫 PROVA RAINHA I</div>
-              <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.4;">Retenção Ilícita<br>de Comissões</div>
+              <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.4;" data-pt="Retenção Ilícita<br>de Comissões" data-en="Illegal Withholding<br>of Commissions" id="pure-sg1-subdesc">Retenção Ilícita<br>de Comissões</div>
             </td>
             <td style="padding:14px 12px; vertical-align:middle; text-align:center; border-right:1px solid rgba(245,158,11,0.1); background:#0a1628;">
               <div style="font-size:0.62rem; color:#64748b; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;"
                    id="pure-sg1-saft-label" data-pt="SAF-T (Bruto)" data-en="SAF-T (Gross)">SAF-T (Bruto)</div>
               <div style="font-size:1.05rem; font-weight:800; color:#f8fafc; font-family:'JetBrains Mono',monospace;"
-                   id="pure-sg1-saft-val" data-i18n-ignore>€ 0,00</div>
+                   id="pure-sg1-saft-val" data-i18n-ignore>0,00 €</div>
             </td>
             <td style="padding:14px 12px; vertical-align:middle; text-align:center; border-right:1px solid rgba(245,158,11,0.1); background:#0a1628;">
               <div style="font-size:0.62rem; color:#64748b; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;"
                    id="pure-sg1-dac7-label" data-pt="DAC7 (AT)" data-en="DAC7 (TA)">DAC7 (AT)</div>
               <div style="font-size:1.05rem; font-weight:800; color:#f8fafc; font-family:'JetBrains Mono',monospace;"
-                   id="pure-sg1-dac7-val" data-i18n-ignore>€ 0,00</div>
+                   id="pure-sg1-dac7-val" data-i18n-ignore>0,00 €</div>
             </td>
             <td style="padding:14px 12px; vertical-align:middle; text-align:center; border-right:1px solid rgba(245,158,11,0.15); background:rgba(245,158,11,0.06);">
               <div style="font-size:0.65rem; font-weight:800; color:#f59e0b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;"
                    id="pure-sg1-delta-label" data-pt="DISCREPÂNCIA" data-en="DISCREPANCY">DISCREPÂNCIA</div>
               <div style="font-size:1.3rem; font-weight:900; color:#f59e0b; font-family:'JetBrains Mono',monospace; line-height:1.1;"
-                   id="pure-sg1-delta" data-i18n-ignore>€ 0,00</div>
+                   id="pure-sg1-delta" data-i18n-ignore>0,00 €</div>
               <div style="font-size:0.82rem; font-weight:600; color:#fbbf24; margin-top:4px;"
                    id="pure-sg1-pct" data-i18n-ignore>(0%)</div>
             </td>
@@ -1324,7 +1338,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
       </div>
       <div class="pure-zc-item">
         <span class="pure-zc-label" id="pure-zc-gorjetas-label" data-pt="Gorjetas (total período)" data-en="Tips (total period)">Gorjetas (total período)</span>
-        <span id="pure-zona-gorjetas" class="pure-zc-val" data-i18n-ignore>€ 0,00</span>
+        <span id="pure-zona-gorjetas" class="pure-zc-val" data-i18n-ignore>0,00 €</span>
         <span class="pure-zc-tag" id="pure-zc-gorjetas-tag" data-pt="Transferência P2P · 0%" data-en="P2P Transfer · 0%">Transferência P2P · 0%</span>
       </div>
       <div class="pure-zc-item">
@@ -1334,7 +1348,7 @@ console.log('[UNIFED-CONFIG] ℹ️  Proxy LLM configurado: ' + (window.UNIFED_P
       </div>
       <div class="pure-zc-item">
         <span class="pure-zc-label" id="pure-zc-cancelamentos-label" data-pt="Taxas de Cancelamento (total período)" data-en="Cancellation Fees (total period)">Taxas de Cancelamento (total período)</span>
-        <span id="pure-nc-cancelamentos" class="pure-zc-val" data-i18n-ignore>€ 0,00</span>
+        <span id="pure-nc-cancelamentos" class="pure-zc-val" data-i18n-ignore>0,00 €</span>
         <span class="pure-zc-tag" id="pure-zc-cancelamentos-tag" data-pt="já em Ganhos · comissão incluída nos −Despesas" data-en="already in Earnings · commission included in −Expenses">já em Ganhos · comissão incluída nos −Despesas</span>
       </div>
       <div class="pure-zc-item pure-zc-total">

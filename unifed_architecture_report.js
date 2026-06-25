@@ -32,13 +32,13 @@ window.UNIFED_ArchitectureReport = {
         // aos 8 ficheiros listados — ver runAllValidations() para o tratamento
         // gracioso desse cenário (não gera falso "CORROMPIDO").
         const MODULE_INTEGRITY = {
-            'script.js': 'f16912e65ed8399e5a1739b5018613901c252345fcc62a6d576c004be0d10ffb',
+            'script.js': '952412463fab92c21166a4e9f8db28c075e268887baafe992c9a8fe2b4c57177',
             'unifed_triada_export.js': 'c173d05c8c14e3ce38987920fedecf75fba4f5b78bb4217ce2f545490ad6074b',
             'unifed_questionnaire_50questions.js': 'fb85ac006cddfeb695fabe9cea90baeed27eb4941473a588adad9b5ef22973f1',
             'unifed_merkle_engine.js': 'af6b7a4d2cb9e55818454d7292a9abc91f36a743473f439c7f54a09737956ff5',
             'enrichment.js': '1d6b9fd8ead518398d2c289f56ece1449a1118f72c92c94714dc3ec1e695f33b',
             'nexus.js': '68e41429abdeae7f87081b1851f66ab0dc8833510de179e56b79a4fdf6a6e45e',
-            'translations.js': '249fe01ae7fa041b5567a6d508290211f275828c6791f01ec5769e9c09ee3ce1',
+            'translations.js': '648481d86715b579333e55e6c41de3a3133ead97892eb6c5152c56af5f555980',
             'script_injection.js': 'fda58b5ca22d0427d0ce8e4fade96bad5f393176c32c87af7c748178644c3e20'
         };
 
@@ -441,13 +441,13 @@ window.UNIFED_ArchitectureReport = {
     // sincronizados com MODULE_INTEGRITY (linha ~27) na geração deste relatório.
     // F12-D12: sincronizado com estado v1.0-COMMERCIAL-LITIGATION-P3.2+F14 (2026-06-22)
     const expectedHashes = {
-        'script.js': 'f16912e65ed8399e5a1739b5018613901c252345fcc62a6d576c004be0d10ffb',
+        'script.js': '952412463fab92c21166a4e9f8db28c075e268887baafe992c9a8fe2b4c57177',
         'unifed_triada_export.js': 'c173d05c8c14e3ce38987920fedecf75fba4f5b78bb4217ce2f545490ad6074b',
         'unifed_questionnaire_50questions.js': 'fb85ac006cddfeb695fabe9cea90baeed27eb4941473a588adad9b5ef22973f1',
         'unifed_merkle_engine.js': 'af6b7a4d2cb9e55818454d7292a9abc91f36a743473f439c7f54a09737956ff5',
         'enrichment.js': '1d6b9fd8ead518398d2c289f56ece1449a1118f72c92c94714dc3ec1e695f33b',
         'nexus.js': '68e41429abdeae7f87081b1851f66ab0dc8833510de179e56b79a4fdf6a6e45e',
-        'translations.js': '249fe01ae7fa041b5567a6d508290211f275828c6791f01ec5769e9c09ee3ce1',
+        'translations.js': '648481d86715b579333e55e6c41de3a3133ead97892eb6c5152c56af5f555980',
         'script_injection.js': 'fda58b5ca22d0427d0ce8e4fade96bad5f393176c32c87af7c748178644c3e20'
     };
 

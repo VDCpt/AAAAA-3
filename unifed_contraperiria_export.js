@@ -2,7 +2,7 @@
  * ============================================================================
  * UNIFED-PROBATUM | MÓDULO DE EXPORTAÇÃO FORENSE — PACOTE CONTRA-CONSULTORIA TÉCNICA
  * ============================================================================
- * Versão  : v1.0-COMMERCIAL-LITIGATION-P3.1
+ * Versão  : [DINÂMICA — lida de window.UNIFED_VERSION.full em runtime]
  * Normas  : ISO/IEC 27037:2012 · Art. 125.º CPP · D.L. n.º 28/2019 · eIDAS 2.0
  *
  * PROPÓSITO:
@@ -53,10 +53,10 @@
 
     // ── Constantes de identificação ──────────────────────────────────────────
     // F9.3-VECTOR5: leitura dinâmica de window.UNIFED_VERSION.full, eliminando
-    // o drift de 'v1.0-COMMERCIAL-LITIGATION-P3.1' fixo (9+ patches atrasado)
+    // [HISTÓRICO] drift anterior de 'v1.0-COMMERCIAL-LITIGATION-P3.1' (9+ patches atrasado) — corrigido para leitura dinâmica (A03)
     // no pacote especificamente concebido para verificação independente pela
     // contraparte — onde a coerência de versão é mais escrutinada.
-    const MODULE_VERSION  = (window.UNIFED_VERSION && window.UNIFED_VERSION.full) || 'v1.0-COMMERCIAL-LITIGATION-P3.1';
+    const MODULE_VERSION  = (window.UNIFED_VERSION && window.UNIFED_VERSION.full) || 'UNIF-L6.1';
     const MODULE_ID       = 'UNIFED-PROBATUM-CONTRAPERIRIA';
     const PATCH_REGISTRY  = [
         {
@@ -460,6 +460,17 @@
         if (btn) {
             btn.disabled = true;
             btn.textContent = '⏳ A GERAR PACOTE...';
+        }
+
+        // UNIF-L7-C5: guard JSZip rápido — falha explícita antes de qualquer trabalho
+        if (typeof JSZip === 'undefined') {
+            console.error('[CUSTÓDIA COMPROMETIDA] Motor JSZip inacessível.');
+            alert(window.currentLang === 'en'
+                ? 'Critical Error: Compression engine unavailable. Export aborted.'
+                : 'Erro Crítico: Motor de compressão indisponível. Exportação abortada.');
+            if (btn) { btn.disabled = false; btn.textContent = '📦 CONTRA-PERÍCIA'; }
+            window._unifedExportInProgress = false;
+            return null;
         }
 
         try {

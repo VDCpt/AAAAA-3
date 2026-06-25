@@ -1226,14 +1226,14 @@ window.getForensicSessionId = function() {
     const MASTER_KEY = 'UNIFED_ACTIVE_SESSION_ID';
     let activeSession;
     try {
-        activeSession = localStorage.getItem(MASTER_KEY);
+        activeSession = sessionStorage.getItem(MASTER_KEY);
     } catch (_e) { activeSession = null; }
 
     if (!activeSession) {
         // Primeira inicialização: gerar ID e fixá-lo na sessão do navegador
         activeSession = 'UNIFED-' + Date.now().toString(36).toUpperCase() + '-' +
                         Math.random().toString(36).substring(2, 7).toUpperCase();
-        try { localStorage.setItem(MASTER_KEY, activeSession); } catch (_e) { /* sessionStorage fallback */ }
+        try { sessionStorage.setItem(MASTER_KEY, activeSession); } catch (_e) { /* sessionStorage write error */ }
     }
 
     // Sincronização com o objecto global UNIFEDSystem (fonte de verdade da UI)
@@ -2490,7 +2490,7 @@ const ForensicLogger = {
 
     logs: (function () {
         try {
-            const raw = localStorage.getItem('UNIFED_FORENSIC_LOGS');
+            const raw = sessionStorage.getItem('UNIFED_FORENSIC_LOGS');
             return raw ? JSON.parse(raw) : [];
         } catch (e) {
             return [];
@@ -2499,10 +2499,10 @@ const ForensicLogger = {
 
     _persist() {
         try {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.logs));
+            sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.logs));
         } catch (e) {
             this.logs = this.logs.slice(-Math.floor(this.MAX_ENTRIES / 2));
-            try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.logs)); } catch (_) { }
+            try { sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.logs)); } catch (_) { }
         }
     },
 
@@ -2561,7 +2561,7 @@ const ForensicLogger = {
 
     clearLogs() {
         this.logs = [];
-        localStorage.removeItem(this.STORAGE_KEY);
+        sessionStorage.removeItem(this.STORAGE_KEY);
         this.addEntry('SYSTEM_LOGS_CLEARED', { action: 'Logs purgados pelo operador', rgpd: 'Art. 17.º Direito ao Apagamento' });
     },
 
@@ -2636,7 +2636,7 @@ const ForensicLogger = {
             if (!secret) return;
             const payload      = JSON.stringify(logsArray);
             const encryptedData = CryptoJS.AES.encrypt(payload, secret).toString();
-            localStorage.setItem('UNIFED_FORENSIC_LOGS_ENC', encryptedData);
+            sessionStorage.setItem('UNIFED_FORENSIC_LOGS_ENC', encryptedData);
         } catch (e) {
             console.warn('[SECURITY] Cifragem AES indisponível — logs em texto plano (fallback RGPD):', e.message);
         }
@@ -2645,7 +2645,7 @@ const ForensicLogger = {
     getDecryptedLogs() {
         try {
             if (typeof CryptoJS === 'undefined') return this.getLogs();
-            const encryptedData = localStorage.getItem('UNIFED_FORENSIC_LOGS_ENC');
+            const encryptedData = sessionStorage.getItem('UNIFED_FORENSIC_LOGS_ENC');
             if (!encryptedData) return this.getLogs();
             const secret        = this._getSecret();
             const bytes         = CryptoJS.AES.decrypt(encryptedData, secret);
@@ -4308,6 +4308,13 @@ function openHashModal() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOMContentLoaded - Inicializando sistema UNIFED - PROBATUM v1.0-COMMERCIAL-LITIGATION');
     setupStaticListeners();
+    // UNIF-L7-C4: inicializar atributo data-lang no <body> para mutual exclusion CSS
+    (function() {
+        var _initLang = (window.localStorage && localStorage.getItem('unifed_lang')) || 'pt';
+        if (_initLang !== 'pt' && _initLang !== 'en') _initLang = 'pt';
+        window.currentLang = _initLang;
+        document.body.setAttribute('data-lang', _initLang);
+    })();
     populateAnoFiscal();
     populateYears();
     startClockAndDate();
@@ -4440,7 +4447,7 @@ function showMainInterface() {
 
 function loadSystemRecursively() {
     try {
-        const stored = localStorage.getItem('ifde_client_data_v12_8');
+        const stored = sessionStorage.getItem('ifde_client_data_v12_8');
         if (stored) {
             const client = JSON.parse(stored);
             if (client && client.name && client.nif) {
@@ -4975,7 +4982,7 @@ function registerClient() {
     if (!validateNIF(nif)) return showToast('NIF inválido (checksum falhou)', 'error');
 
     UNIFEDSystem.client = { name, nif, platform: UNIFEDSystem.selectedPlatform };
-    localStorage.setItem('ifde_client_data_v12_8', JSON.stringify(UNIFEDSystem.client));
+    sessionStorage.setItem('ifde_client_data_v12_8', JSON.stringify(UNIFEDSystem.client));
 
     document.getElementById('clientStatusFixed').style.display = 'flex';
     setElementText('clientNameDisplayFixed', name);
@@ -5551,7 +5558,7 @@ function activateDemoMode() {
     }
 
     logAudit('🚀 ATIVANDO CASO REAL (ANONIMIZADO) v1.0-COMMERCIAL-LITIGATION · SUJEITO PASSIVO ALFA · 2024 · 2.º SEM...', 'info');
-    const _tsChk = new Date().toLocaleTimeString('pt-PT', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const _tsChk = new Date().toLocaleTimeString(window.currentLang === 'en' ? 'en-US' : 'pt-PT', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     console.info(`[${_tsChk}] ✅ INTEGRITY CHECK: Dashboard Hash matches PDF Hash. Synchronization confirmed.`);
 
     const isEn = (currentLang === 'en');
@@ -7915,7 +7922,7 @@ function clearConsole() {
     if (clientNameInput) clientNameInput.value = '';
     if (clientNIFInput) clientNIFInput.value = '';
     if (clientStatus) clientStatus.style.display = 'none';
-    localStorage.removeItem('ifde_client_data_v12_8');
+    sessionStorage.removeItem('ifde_client_data_v12_8');
 
     const fieldsToClear = ['subject-name', 'subject-nif', 'subject-address', 'audit-period', 'audit-hash', 'audit-status', 'saft-total', 'saft-iva', 'saft-iliquido', 'extract-ganhos', 'extract-despesas', 'dac7-total', 'revenue-gap', 'expense-gap'];
     fieldsToClear.forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '---'; });
@@ -8129,7 +8136,7 @@ function resetSystem() {
 
     ForensicLogger.addEntry('SYSTEM_RESET');
 
-    localStorage.removeItem('ifde_client_data_v12_8');
+    sessionStorage.removeItem('ifde_client_data_v12_8');
     // R24-R3: reload robusto
     try { location.reload(true); } catch(e) { location.href = location.href.split('?')[0]; }
 }
@@ -8238,7 +8245,7 @@ function setupWipeButton() {
         if (confirm(currentLang === 'pt' ? '[!] PURGA TOTAL DE DADOS\n\nEsta ação irá eliminar permanentemente TODOS os ficheiros carregados, registos de cliente e logs de atividade. Esta ação é irreversível.\n\nTem a certeza absoluta?' : '[!] TOTAL DATA PURGE\n\nThis action will permanently delete ALL uploaded files, client records and activity logs. This action is irreversible.\n\nAre you absolutely sure?')) {
             ForensicLogger.addEntry('WIPE_INITIATED');
 
-            localStorage.removeItem('ifde_client_data_v12_8');
+            sessionStorage.removeItem('ifde_client_data_v12_8');
             localStorage.removeItem(ForensicLogger.STORAGE_KEY);
 
             resetAllValues();
@@ -9732,7 +9739,8 @@ window.switchLanguage = (function(orig) {
     return function(lang) {
         if(lang && (lang === 'pt' || lang === 'en')) window.currentLang = lang;
         else window.currentLang = window.currentLang === 'pt' ? 'en' : 'pt';
-        if(window.localStorage) localStorage.setItem('unifed_language', window.currentLang);
+        if(window.localStorage) localStorage.setItem('unifed_lang', window.currentLang);
+        document.body.setAttribute('data-lang', window.currentLang);
         window.translateAll();
         window.dispatchEvent(new CustomEvent('unifed:languageChanged', { detail: { lang: window.currentLang } }));
         if(typeof window._syncPureDashboard === 'function') setTimeout(() => window._syncPureDashboard(window.UNIFEDSystem), 50);
@@ -10919,10 +10927,10 @@ console.log('[UNIFED-RETIFICACOES] \u2705 Bloco de Retifica\u00e7\u00f5es Cir\u0
              (window.ForensicLogger && window.ForensicLogger.STORAGE_KEY) || null,
              'UNIFED_SESSION', 'UNIFED_CHAIN'
             ].forEach(key => {
-                if (key && localStorage.getItem(key) !== null) {
-                    localStorage.setItem(key, _shred());
-                    localStorage.setItem(key, _shred());
-                    localStorage.removeItem(key);
+                if (key && (sessionStorage.getItem(key) !== null || localStorage.getItem(key) !== null)) {
+                    // shred em ambos (compatibilidade)
+                    try { sessionStorage.setItem(key, _shred()); sessionStorage.setItem(key, _shred()); sessionStorage.removeItem(key); } catch(_) {}
+                    try { localStorage.setItem(key, _shred()); localStorage.setItem(key, _shred()); localStorage.removeItem(key); } catch(_) {}
                 }
             });
         } catch (shredErr) {
@@ -10930,12 +10938,12 @@ console.log('[UNIFED-RETIFICACOES] \u2705 Bloco de Retifica\u00e7\u00f5es Cir\u0
         }
         // ── FASE 3: Limpeza de localStorage ──
         try {
-            localStorage.removeItem('ifde_client_data_v12_8');
+            sessionStorage.removeItem('ifde_client_data_v12_8');
             if (window.ForensicLogger && window.ForensicLogger.STORAGE_KEY) {
-                localStorage.removeItem(window.ForensicLogger.STORAGE_KEY);
+                sessionStorage.removeItem(window.ForensicLogger.STORAGE_KEY);
             }
-            localStorage.removeItem('UNIFED_SESSION');
-            localStorage.removeItem('UNIFED_CHAIN');
+            sessionStorage.removeItem('UNIFED_SESSION');
+            sessionStorage.removeItem('UNIFED_CHAIN');
         } catch(lsErr) {
             console.error('[UNIFED-PURGE] Erro ao limpar localStorage:', lsErr);
         }

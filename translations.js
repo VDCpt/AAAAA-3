@@ -449,7 +449,7 @@ if (document.readyState === 'loading') {
     window.initLanguageSwitcher();
 }
 
-console.log('[UNIFED-TRANSLATIONS] ✅ Módulo v1.0-NACIONALIZADO carregado (190+ chaves · Jurisprudência PT-PT · Deep Tree Walk optimizada com inPlace · Throttle 50ms)');
+console.log('[UNIFED-TRANSLATIONS] ✅ Módulo v1.0-NACIONALIZADO carregado (190+ chaves · Jurisprudência PT-PT · Deep Tree Walk optimizada com inPlace · Throttle 150ms (R24))');
 
 // ============================================================================
 // RETIFICAÇÃO CIRÚRGICA 4 — Guarda de Runtime contra erro tipográfico
